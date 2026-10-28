@@ -18,5 +18,8 @@ public interface IGuestSessionRepository
 
     Task SaveAsync(GuestSession guestSession);
 
+    /// <summary>Creates the session only if no item with the same id exists. Returns false if it already exists.</summary>
+    Task<bool> TryCreateAsync(GuestSession guestSession);
+
     Task DeleteAsync(GuestSession session);
 }

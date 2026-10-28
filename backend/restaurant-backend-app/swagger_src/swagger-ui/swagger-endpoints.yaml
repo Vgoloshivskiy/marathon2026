@@ -157,12 +157,15 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
-  /guest/groups/{groupReservationId}/submit:
+  /group-reservations/{groupReservationId}/submit:
     post:
       tags:
         - Group Reservations
-      summary: Submit group pre-order
-      description: Submits the pre-order for a group reservation, converting guest sessions to orders
+      summary: Submit group pre-order (Owner only)
+      description: >
+        Owner-only. Takes all submitted guest sessions of the group, merges dishes by dishId (summing quantities),
+        adds them to the reservation's order, sets the order status to SubmittedByCustomer and the group reservation
+        status to Submitted (single DynamoDB transaction). Idempotent - repeated calls do not duplicate items.
       operationId: submitGroupPreOrder
       parameters:
         - name: groupReservationId
@@ -171,6 +174,8 @@ paths:
           description: The ID of the group reservation
           schema:
             type: string
+      security:
+        - bearerAuth: []
       requestBody:
         required: true
         content:
@@ -179,22 +184,40 @@ paths:
               $ref: '#/components/schemas/SubmitGroupPreOrderRequest'
       responses:
         '200':
-          description: Group pre-order submitted successfully
+          description: Group pre-order submitted successfully (merged dishes)
           content:
             application/json:
               schema:
                 type: array
                 items:
                   type: object
-                  description: Enriched dishes data
+                  properties:
+                    dishId:
+                      type: string
+                      example: dish1
+                    quantity:
+                      type: integer
+                      example: 3
         '400':
-          description: Invalid request - missing parameters or validation error
+          description: No submitted sessions, no dishes, order not found, or invalid body
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
-        '500':
-          description: Internal server error
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Caller is not the reservation owner
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Reservation or group reservation not found
           content:
             application/json:
               schema:
@@ -278,8 +301,8 @@ paths:
     get:
       tags:
         - Guest Sessions
-      summary: Get all sessions for group reservation
-      description: Retrieves all guest sessions for a group reservation
+      summary: Get all sessions for group reservation (Owner only)
+      description: Returns participants (owner and guests) with their dishes, per-participant totals and the overall total
       operationId: getAllSessionsForGroup
       parameters:
         - name: groupReservationId
@@ -303,8 +326,20 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Caller is not the reservation owner
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         '404':
-          description: Group reservation not found or GroupId is required
+          description: Group reservation not found
           content:
             application/json:
               schema:
@@ -434,8 +469,8 @@ paths:
     delete:
       tags:
         - Guest Sessions
-      summary: Delete guest session
-      description: Deletes a guest session from a group reservation
+      summary: Delete guest session (Owner only)
+      description: Deletes a guest session from a group reservation and returns the updated group snapshot
       operationId: deleteGuestSession
       parameters:
         - name: groupReservationId
@@ -458,16 +493,21 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                description: Updated snapshot of the group reservation
+                $ref: '#/components/schemas/GetAllSessionsResponse'
         '400':
-          description: Invalid request - missing required path parameters
+          description: Invalid request - session belongs to another group, or owner session
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
         '401':
           description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Caller is not the reservation owner
           content:
             application/json:
               schema:
@@ -479,12 +519,69 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
+  /guest/groups/{groupReservationId}/sessions/{guestSessionId}/items/{dishId}:
+    delete:
+      tags:
+        - Guest Sessions
+      summary: Remove an item from a guest's cart (Owner only)
+      description: Removes the dish line item from the given session (guest or owner) and returns the updated group snapshot
+      operationId: removeGroupSessionItem
+      parameters:
+        - name: groupReservationId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: guestSessionId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: dishId
+          in: path
+          required: true
+          schema:
+            type: string
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Item removed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GetAllSessionsResponse'
+        '400':
+          description: Session belongs to another group, or group already submitted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Caller is not the reservation owner
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Group reservation, guest session or item not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
   /reservations/{reservationId}/guest-session-id:
     get:
       tags:
         - Guest Sessions
-      summary: Get owner's guest session ID
-      description: Retrieves the guest session ID for the reservation owner
+      summary: Get owner's guest session ID (Owner only)
+      description: Returns the guest session ID of the reservation owner (created lazily on first call)
       operationId: getOwnerSessionId
       parameters:
         - name: reservationId
@@ -508,8 +605,20 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Caller is not the reservation owner
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         '404':
-          description: Reservation not found
+          description: Reservation (or its group reservation) not found
           content:
             application/json:
               schema:
@@ -724,6 +833,10 @@ components:
           type: string
           description: The guest session ID of the reservation owner
           example: session-owner-123
+        sessionToken:
+          type: string
+          description: Newly issued guest-session bearer token for the owner's session (each call rotates it)
+          example: base64-token
 
     DishResponse:
       type: object

@@ -1,15 +1,19 @@
 using APIHandler.Constants;
+using APIHandler.Constants.Orders;
 using APIHandler.Entities;
 using APIHandler.Exceptions;
 using APIHandler.Models.GroupReservation;
 using APIHandler.Models.GuestReservation;
 using APIHandler.Repositories.GroupReservations;
 using APIHandler.Repositories.GuestSessions;
+using APIHandler.Repositories.Orders;
 using APIHandler.Repositories.Reservations;
 using APIHandler.Repositories.Tables;
 using APIHandler.Services.Auth;
 using APIHandler.Services.Locations;
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 
 namespace APIHandler.Services.GroupReservations;
@@ -19,6 +23,7 @@ public class GroupReservationService(
     ITableRepository tableRepository,
     IReservationRepository reservationRepository,
     IGuestSessionRepository guestSessionRepository,
+    IOrderRepository orderRepository,
     IUserService userService,
     ILocationService locationService) : IGroupReservationService
 {
@@ -141,6 +146,68 @@ public class GroupReservationService(
             throw new GroupReservationExpiredException();
 
         return new GetGroupInviteTokenResponse(groupReservation.ReservationToken);
+    }
+
+    public async Task<IReadOnlyList<SubmittedDishResponse>> SubmitGroupPreOrderAsync(string userId, string groupReservationId, string reservationId)
+    {
+        GroupReservation group = await groupReservationRepository.GetGroupReservationByIdAsync(groupReservationId)
+            ?? throw new GroupReservationNotFoundException();
+
+        Reservation reservation = await reservationRepository.GetReservationByIdAsync(reservationId)
+            ?? throw new ReservationNotFoundException($"Reservation {reservationId} was not found.");
+
+        if (reservation.CustomerId != userId)
+            throw new ActionForbiddenException("Only the reservation owner can perform this action.");
+
+        if (group.ReservationId != reservationId)
+            throw new ValidationException("Group reservation does not belong to this reservation.");
+
+        List<GuestSession> sessions = await guestSessionRepository.GetAllByGroupReservationIdAsync(groupReservationId);
+        List<GuestSession> submittedSessions = sessions.Where(s => s.IsSubmitted).ToList();
+
+        if (submittedSessions.Count == 0)
+            throw new ValidationException("There are no submitted guest sessions in this group reservation.");
+
+        List<SubmittedDishResponse> merged = submittedSessions
+            .SelectMany(s => s.Dishes ?? [])
+            .Where(d => d.Quantity > 0)
+            .GroupBy(d => d.DishId)
+            .Select(g => new SubmittedDishResponse(g.Key, g.Sum(d => d.Quantity)))
+            .ToList();
+
+        if (merged.Count == 0)
+            throw new ValidationException("Submitted guest sessions do not contain any dishes.");
+
+        Order order = await orderRepository.GetOrderByReservationIdAsync(reservationId)
+            ?? throw new ValidationException($"Order for reservation {reservationId} was not found.");
+
+        // Idempotency: already submitted (e.g. client retry) -> do not add the dishes again.
+        if (group.Status == GroupReservationStatus.Submitted && order.Status == OrderStatus.SubmittedByCustomer)
+            return merged;
+
+        order.Dishes ??= [];
+        foreach (SubmittedDishResponse dish in merged)
+        {
+            OrderItem? existing = order.Dishes.FirstOrDefault(d => d.DishId == dish.DishId);
+            if (existing is not null)
+                existing.Quantity += dish.Quantity;
+            else
+                order.Dishes.Add(new OrderItem { DishId = dish.DishId, Quantity = dish.Quantity, State = OrderItemState.Pending });
+        }
+
+        order.Status = OrderStatus.SubmittedByCustomer;
+        group.Status = GroupReservationStatus.Submitted;
+
+        bool saved = await orderRepository.SaveOrderAndGroupReservationAsync(order, group);
+        if (!saved)
+        {
+            // Lost a race: the group was submitted concurrently. Reload and return the already-submitted result
+            // without re-applying quantities.
+            await groupReservationRepository.GetGroupReservationByIdAsync(groupReservationId);
+            await orderRepository.GetOrderByReservationIdAsync(reservationId);
+        }
+
+        return merged;
     }
 }
 

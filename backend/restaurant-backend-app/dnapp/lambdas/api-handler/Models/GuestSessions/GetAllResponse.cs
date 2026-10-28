@@ -6,6 +6,8 @@ namespace APIHandler.Models.GuestSessions;
 
 public record GetAllSessionsResponse(IEnumerable<Participant> Participants, decimal Total);
 
+public record GetOwnerSessionIdResponse(string GuestSessionId, string? SessionToken = null);
+
 public record Participant(
     string? Id,
     [property: JsonConverter(typeof(JsonStringEnumConverter<ParticipantType>))] ParticipantType Type,

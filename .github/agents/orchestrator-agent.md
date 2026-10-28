@@ -4,6 +4,7 @@ description: "Orchestrates backend feature implementation for restaurant-backend
 agent_type: general-purpose
 reasoning_effort: high
 context_tier: long_context
+tools: [agent]
 tools_config:
   allowed_tools:
     - powershell

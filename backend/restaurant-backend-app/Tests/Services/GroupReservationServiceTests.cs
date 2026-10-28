@@ -20,6 +20,7 @@ public class GroupReservationServiceTests
     private readonly Mock<ITableRepository> _tableRepositoryMock = new();
     private readonly Mock<IReservationRepository> _reservationRepositoryMock = new();
     private readonly Mock<IGuestSessionRepository> _guestSessionRepositoryMock = new();
+    private readonly Mock<APIHandler.Repositories.Orders.IOrderRepository> _orderRepositoryMock = new();
     private readonly Mock<IUserService> _userServiceMock = new();
     private readonly Mock<ILocationService> _locationServiceMock = new();
 
@@ -32,6 +33,7 @@ public class GroupReservationServiceTests
             _tableRepositoryMock.Object,
             _reservationRepositoryMock.Object,
             _guestSessionRepositoryMock.Object,
+            _orderRepositoryMock.Object,
             _userServiceMock.Object,
             _locationServiceMock.Object);
     }

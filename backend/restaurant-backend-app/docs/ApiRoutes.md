@@ -555,10 +555,13 @@ Response: `200 OK`
 ```
 
 ### `GET` /reservations/{reservationId}/guest-session-id
+Owner only (the owner session is created lazily on the first call). Every call issues a new `sessionToken` (only its hash is stored, so a previous token is rotated/invalidated). Use it as `Authorization: Bearer <sessionToken>` on the guest-session cart endpoints (`/guest/sessions/{guestSessionId}/...`) for the owner's own session. Legacy owner sessions without a token get one on the next call. Errors: `401`, `403` (not owner), `404` (reservation / group reservation not found).
+
 Response: `200 OK`
 ```json
 {
-  "guestSessionId": "string"
+  "guestSessionId": "string",
+  "sessionToken": "string"
 }
 ```
 
@@ -1180,30 +1183,54 @@ Response: 200 OK
 ```
 
 ### `POST` /group-reservations/{groupReservationId}/submit
-Response: 200 OK
+Owner only. Uses only submitted guest sessions, merges dishes by `dishId` (quantities summed), adds them to the reservation's order, sets order status `SubmittedByCustomer` and group reservation status `Submitted` in one transaction. Idempotent: a repeated call returns the same list without duplicating order items.
+
+Request body:
 ```json
 {
-  "message": "Group reservation pre-order submitted successfully."
+  "reservationId": "string"
 }
 ```
 
-### `GET` /guest/groups/{groupReservationId}/sessions
 Response: 200 OK
 ```json
 [
-  {
-    "id": "string",
-    "groupReservationId": "string",
-    "guestName": "string",
-    "status": "string"
-  }
+  { "dishId": "dish1", "quantity": 3 },
+  { "dishId": "dish2", "quantity": 2 }
 ]
 ```
+Errors: `401` unauthorized, `403` caller is not the owner, `404` reservation / group reservation not found, `400` no submitted sessions / no dishes in submitted sessions / order not found / group doesn't belong to reservation / invalid body.
 
-### `DELETE` /guest/groups/{groupReservationId}/sessions/{guestSessionId}
-Response: 200 OK
+### `GET` /guest/groups/{groupReservationId}/sessions
+Owner only. Response: 200 OK
 ```json
 {
-  "message": "Guest session removed from group successfully."
+  "participants": [
+    {
+      "id": "session1",
+      "type": "Guest",
+      "name": "Andrii",
+      "items": [
+        { "dish": { "id": "dish1", "name": "Caesar Salad", "price": 180 }, "quantity": 2 }
+      ],
+      "total": 360,
+      "isSubmitted": true
+    }
+  ],
+  "total": 360
 }
 ```
+`type` is `Owner` for the owner's session and `Guest` otherwise. Errors: `401`, `403` (not owner), `404` (group reservation not found).
+
+### `DELETE` /guest/groups/{groupReservationId}/sessions/{guestSessionId}
+Owner only. Deletes the guest session and returns the updated snapshot (same shape as `GET /guest/groups/{groupReservationId}/sessions`).
+
+Errors: `401`, `403` (not owner), `404` (group reservation or session not found), `400` (session belongs to another group, or is the owner session).
+
+### `DELETE` /guest/groups/{groupReservationId}/sessions/{guestSessionId}/items/{dishId}
+Owner only (Cognito `sub` must equal `reservation.CustomerId`). Removes the whole line item `dishId` (all its quantity) from any session of the group (guest or owner) and returns the updated snapshot (same shape as `GET /guest/groups/{groupReservationId}/sessions`). Cart items have no separate id; `dishId` identifies the item within a session.
+
+Errors: `401`, `403` (not owner), `404` (group reservation / session / item not found), `400` (session belongs to another group, or group already `Submitted`; the latter has `errorCode: GroupReservationSubmitted`).
+
+### Owner live cart polling / sharing
+No websocket: the owner polls `GET /guest/groups/{groupReservationId}/sessions` (e.g. every few seconds). Participants are ordered deterministically (owner first, then by name, then id). Data comes from an eventually consistent GSI, so a just-written change may appear in the next poll. The `groupReservationId` is obtained from `GET /guest/invites/{token}` or the reservation; the share link is built from the token returned by `GET /reservations/{reservationId}/invite-token` (guests resolve it via `GET /guest/invites/{token}`, then `POST /guest/sessions`). `GET /guest/groups/{groupReservationId}/status` (public) gives participant count/status for lightweight polling.

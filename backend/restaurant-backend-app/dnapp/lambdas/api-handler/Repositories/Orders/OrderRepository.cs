@@ -1,4 +1,6 @@
 ﻿using Amazon.DynamoDBv2.DataModel;
+using Amazon.DynamoDBv2.DocumentModel;
+using Amazon.DynamoDBv2.Model;
 using APIHandler.Constants;
 using APIHandler.Entities;
 using System;
@@ -55,5 +57,39 @@ public class OrderRepository : IOrderRepository
     public async Task SaveOrderAsync(Order order)
     {
         await _dynamoDbContext.SaveAsync(order, DynamoConfig.SaveConfig(OrdersTableName));
+    }
+
+    public async Task<bool> SaveOrderAndGroupReservationAsync(Order order, GroupReservation groupReservation)
+    {
+        var orderWrite = _dynamoDbContext.CreateTransactWrite<Order>(new TransactWriteConfig { OverrideTableName = OrdersTableName });
+        orderWrite.AddSaveItem(order);
+
+        // The group status is updated only if it has not been Submitted yet (guards against concurrent/retried submits).
+        var submittedStatus = _dynamoDbContext.ToDocument(groupReservation)["status"];
+        var groupWrite = _dynamoDbContext.CreateTransactWrite<GroupReservation>(new TransactWriteConfig { OverrideTableName = ResourceNames.GroupReservationsTableName });
+        groupWrite.AddSaveItem(
+            groupReservation.GroupReservationId,
+            new Expression
+            {
+                ExpressionStatement = "SET #s = :submitted",
+                ExpressionAttributeNames = new Dictionary<string, string> { ["#s"] = "status" },
+                ExpressionAttributeValues = new Dictionary<string, DynamoDBEntry> { [":submitted"] = submittedStatus }
+            },
+            new Expression
+            {
+                ExpressionStatement = "attribute_exists(groupReservationId) AND (attribute_not_exists(#s) OR #s <> :submitted)",
+                ExpressionAttributeNames = new Dictionary<string, string> { ["#s"] = "status" },
+                ExpressionAttributeValues = new Dictionary<string, DynamoDBEntry> { [":submitted"] = submittedStatus }
+            });
+
+        try
+        {
+            await _dynamoDbContext.CreateMultiTableTransactWrite(orderWrite, groupWrite).ExecuteAsync();
+            return true;
+        }
+        catch (TransactionCanceledException ex) when (ex.CancellationReasons?.Any(r => r.Code == "ConditionalCheckFailed") == true)
+        {
+            return false;
+        }
     }
 }
