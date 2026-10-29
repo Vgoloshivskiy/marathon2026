@@ -1,0 +1,224 @@
+@use 'app/shared/styles/abstracts/colors' as color;
+
+:host {
+  display: block;
+}
+
+.page {
+  box-sizing: border-box;
+  width: min(100% - 32px, 820px);
+  margin: 24px auto;
+  padding: 28px;
+  color: color.$neutral-900;
+  background: color.$neutral-100;
+  border-radius: 18px;
+}
+
+.page-header {
+  padding-bottom: 16px;
+  border-bottom: 1px solid color.$green-150;
+}
+
+.title-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+h1 {
+  margin: 0;
+  font-size: clamp(24px, 5vw, 30px);
+  font-weight: 500;
+}
+
+.status-badge {
+  padding: 5px 10px;
+  color: color.$neutral-900;
+  background: color.$green-100;
+  border-radius: 14px;
+  font-size: 12px;
+}
+
+.status-badge--submitted {
+  background: color.$orange-100;
+}
+
+.reservation-details {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 24px;
+  margin-top: 14px;
+  font-size: 14px;
+}
+
+.participants {
+  display: grid;
+  gap: 16px;
+  padding: 0;
+  margin: 18px 0;
+  list-style: none;
+}
+
+.submission-warning,
+.refresh-warning {
+  padding: 12px 14px;
+  margin: 16px 0;
+  border-radius: 8px;
+  font-size: 14px;
+}
+
+.submission-warning {
+  color: color.$neutral-900;
+  background: color.$orange-30;
+  border: 1px solid color.$orange-100;
+}
+
+.refresh-warning {
+  background: color.$red-30;
+  border: 1px solid color.$red-100;
+}
+
+.order-summary {
+  padding-top: 16px;
+  border-top: 2px solid color.$green-150;
+}
+
+.order-summary h2 {
+  margin: 0 0 12px;
+  font-size: 19px;
+  font-weight: 500;
+}
+
+.consolidated-items {
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+
+.consolidated-items li {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 7px 0;
+  border-bottom: 1px solid color.$neutral-200;
+}
+
+.grand-total {
+  display: flex;
+  justify-content: space-between;
+  margin: 12px 0 16px;
+  color: color.$green-800;
+  font-size: 25px;
+  font-weight: 500;
+}
+
+.submit-button,
+.button {
+  min-height: 48px;
+  padding: 12px 20px;
+  border: 0;
+  border-radius: 8px;
+  font: inherit;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.submit-button {
+  width: 100%;
+  color: color.$neutral-0;
+  background: color.$green-800;
+}
+
+.submit-button:disabled,
+.button:disabled {
+  background: color.$neutral-400;
+  cursor: not-allowed;
+}
+
+.sync-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 12px;
+  color: color.$neutral-600;
+  font-size: 13px;
+}
+
+.sync-controls p {
+  margin: 0;
+}
+
+.refresh-button {
+  padding: 7px 12px;
+  color: color.$green-800;
+  background: transparent;
+  border: 1px solid color.$green-600;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.refresh-button:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+
+.empty-state {
+  padding: 14px;
+  color: color.$neutral-600;
+  text-align: center;
+}
+
+.loading,
+.error-state {
+  padding: 24px 0;
+  text-align: center;
+}
+
+.dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  width: 100%;
+}
+
+.dialog-actions button {
+  min-height: 42px;
+  padding: 8px 18px;
+  background: color.$neutral-0;
+  border: 1px solid color.$neutral-400;
+  border-radius: 7px;
+  font: inherit;
+  cursor: pointer;
+}
+
+.dialog-actions button:disabled {
+  opacity: 0.65;
+  cursor: wait;
+}
+
+.dialog-confirm {
+  color: color.$neutral-0;
+  background: color.$green-800 !important;
+  border-color: color.$green-800 !important;
+}
+
+.dialog-remove {
+  color: color.$red-400;
+  border-color: color.$red-400 !important;
+}
+
+@media (max-width: 600px) {
+  .page {
+    width: 100%;
+    margin: 0 auto;
+    padding: 20px 14px;
+    border-radius: 0;
+  }
+
+  .reservation-details {
+    gap: 8px 14px;
+  }
+}
