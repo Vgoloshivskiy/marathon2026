@@ -13,7 +13,14 @@ export class ParticipantCardComponent {
   readonly participant = input.required<Participant>();
   readonly isMe = input(false);
   readonly canRemove = input(false);
+  readonly canEditItems = input(false);
   readonly removeClick = output<Participant>();
+  readonly addDishesClick = output<void>();
+  readonly itemAction = output<{
+    participantId: string;
+    dishId: string;
+    action: 'increment' | 'decrement' | 'remove';
+  }>();
 
   readonly title = computed(() => {
     const person = this.participant();
@@ -26,5 +33,13 @@ export class ParticipantCardComponent {
 
   onRemove(): void {
     this.removeClick.emit(this.participant());
+  }
+
+  onAddDishes(): void {
+    this.addDishesClick.emit();
+  }
+
+  onItemAction(dishId: string, action: 'increment' | 'decrement' | 'remove'): void {
+    this.itemAction.emit({ participantId: this.participant().id, dishId, action });
   }
 }

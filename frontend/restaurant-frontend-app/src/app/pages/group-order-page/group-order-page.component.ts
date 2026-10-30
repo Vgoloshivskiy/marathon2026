@@ -9,7 +9,7 @@ import {
   inject,
   signal,
 } from '@angular/core';
-import { ActivatedRoute } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import {
   EMPTY,
   Observable,
@@ -47,6 +47,7 @@ const SYNC_INTERVAL_MS = 15_000;
 })
 export class GroupOrderPageComponent implements OnInit, OnDestroy {
   private readonly route = inject(ActivatedRoute);
+  private readonly router = inject(Router);
   private readonly groupOrdersService = inject(GroupOrdersService);
   private readonly toastService = inject(ToastService);
   private pollingSubscription?: Subscription;
@@ -66,6 +67,7 @@ export class GroupOrderPageComponent implements OnInit, OnDestroy {
   readonly submitDialogOpen = signal(false);
   readonly removeGuestTarget = signal<Participant | null>(null);
   readonly removingGuest = signal(false);
+  readonly hasPreviewEdits = signal(false);
 
   readonly consolidatedOrder = computed(() => consolidatePreOrder(this.participants()));
   readonly notSubmittedCount = computed(
@@ -84,7 +86,11 @@ export class GroupOrderPageComponent implements OnInit, OnDestroy {
     () =>
       this.groupStatus()?.status === 'Open' &&
       this.consolidatedOrder().items.length > 0 &&
-      !this.submitting()
+      !this.submitting() &&
+      !this.hasPreviewEdits()
+  );
+  readonly canEditItems = computed(
+    () => this.groupStatus()?.status === 'Open' && !this.submitting()
   );
   readonly statusLabel = computed(() => {
     const status = this.groupStatus()?.status;
@@ -186,6 +192,75 @@ export class GroupOrderPageComponent implements OnInit, OnDestroy {
     }
   }
 
+  updateParticipantItem(event: {
+    participantId: string;
+    dishId: string;
+    action: 'increment' | 'decrement' | 'remove';
+  }): void {
+    if (!this.canEditItems()) {
+      return;
+    }
+
+    this.participants.update((participants) =>
+      participants.map((participant) => {
+        if (participant.id !== event.participantId) {
+          return participant;
+        }
+
+        const selectedItem = participant.items.find((item) => item.dish.id === event.dishId);
+        if (!selectedItem) {
+          return participant;
+        }
+
+        const items =
+          event.action === 'remove'
+            ? participant.items.filter((item) => item.dish.id !== event.dishId)
+            : participant.items.map((item) => {
+                if (item.dish.id !== event.dishId) {
+                  return item;
+                }
+
+                const quantity =
+                  event.action === 'increment' ? item.quantity + 1 : Math.max(1, item.quantity - 1);
+                return { ...item, quantity };
+              });
+
+        return {
+          ...participant,
+          items,
+          total: items.reduce((total, item) => total + item.dish.price * item.quantity, 0),
+        };
+      })
+    );
+    this.hasPreviewEdits.set(true);
+  }
+
+  addDishesFromMenu(): void {
+    const reservation = this.invite();
+    const reservationId = this.reservationId();
+    if (!reservation || !reservationId || !this.canEditItems()) {
+      return;
+    }
+
+    const startTime = new Date(reservation.StartTime);
+    const endTime = new Date(reservation.EndTime);
+    const reservationLabel = [
+      reservation.LocationAddress,
+      `Table ${reservation.TableNumber}`,
+      startTime.toDateString(),
+      `${startTime.toLocaleTimeString()} - ${endTime.toLocaleTimeString()}`,
+    ].join(', ');
+
+    void this.router.navigate(['/menu'], {
+      queryParams: {
+        preOrder: 'true',
+        reservationId,
+        reservationLabel,
+        groupOrderReservationId: reservationId,
+      },
+    });
+  }
+
   closeRemoveGuestDialog(): void {
     if (!this.removingGuest()) {
       this.removeGuestTarget.set(null);
@@ -223,7 +298,9 @@ export class GroupOrderPageComponent implements OnInit, OnDestroy {
   }
 
   private setGroupData(sessions: GroupSessionsResponse, status: GroupStatusResponse): void {
-    this.participants.set(sessions.participants);
+    if (!this.hasPreviewEdits()) {
+      this.participants.set(sessions.participants);
+    }
     this.groupStatus.set(status);
     this.updatedAt.set(new Date());
     this.refreshFailed.set(false);

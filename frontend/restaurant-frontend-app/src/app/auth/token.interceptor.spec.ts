@@ -12,10 +12,11 @@ describe('tokenInterceptor', () => {
   let http: HttpClient;
   let httpMock: HttpTestingController;
   let toastService: jasmine.SpyObj<ToastService>;
+  let authService: jasmine.SpyObj<AuthenticationService>;
 
   beforeEach(() => {
     toastService = jasmine.createSpyObj<ToastService>('ToastService', ['error']);
-    const authService = jasmine.createSpyObj<AuthenticationService>('AuthenticationService', [
+    authService = jasmine.createSpyObj<AuthenticationService>('AuthenticationService', [
       'getTokens',
     ]);
     authService.getTokens.and.returnValue(null);
@@ -59,5 +60,19 @@ describe('tokenInterceptor', () => {
 
     expect(toastService.error).not.toHaveBeenCalled();
     expect(receivedStatus).toBe(400);
+  });
+
+  it('attaches the Owner token to group-session endpoints under /guest/', () => {
+    const requestUrl = 'https://test.api/guest/groups/group-1/sessions';
+    authService.getTokens.and.returnValue({
+      idToken: 'owner-id-token',
+      accessToken: 'owner-access-token',
+    });
+
+    http.get(requestUrl).subscribe();
+
+    const request = httpMock.expectOne(requestUrl);
+    expect(request.request.headers.get('Authorization')).toBe('Bearer owner-id-token');
+    request.flush({ participants: [], total: 0 });
   });
 });

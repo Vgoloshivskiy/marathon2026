@@ -61,7 +61,8 @@ h1 {
 }
 
 .submission-warning,
-.refresh-warning {
+.refresh-warning,
+.preview-edit-warning {
   padding: 12px 14px;
   margin: 16px 0;
   border-radius: 8px;
@@ -77,6 +78,11 @@ h1 {
 .refresh-warning {
   background: color.$red-30;
   border: 1px solid color.$red-100;
+}
+
+.preview-edit-warning {
+  background: color.$blue-100;
+  border: 1px solid color.$blue-400;
 }
 
 .order-summary {

@@ -58,45 +58,8 @@ export class GroupOrdersService {
   }
 
   removeSession$(groupId: string, guestSessionId: string): Observable<GroupSessionsResponse> {
-    return this.http
-      .delete<
-        GroupSessionsResponse | PascalCaseSessions
-      >(`${this.baseUrl}/guest/groups/${encodeURIComponent(groupId)}/sessions/${encodeURIComponent(guestSessionId)}`)
-      .pipe(map((response) => normalizeSessions(response)));
+    return this.http.delete<GroupSessionsResponse>(
+      `${this.baseUrl}/guest/groups/${encodeURIComponent(groupId)}/sessions/${encodeURIComponent(guestSessionId)}`
+    );
   }
-}
-
-// The deployed DELETE returns PascalCase participant fields while GET returns camelCase.
-type PascalCaseSessions = {
-  Participants: {
-    Id: string;
-    Type: string;
-    Name: string;
-    Items: GroupSessionsResponse['participants'][number]['items'];
-    Total: number;
-    IsSubmitted: boolean;
-  }[];
-  Total: number;
-};
-
-function normalizeSessions(
-  response: GroupSessionsResponse | PascalCaseSessions
-): GroupSessionsResponse {
-  if ('participants' in response) {
-    return response;
-  }
-  return {
-    participants: response.Participants.map(
-      (p) =>
-        ({
-          id: p.Id,
-          type: p.Type,
-          name: p.Name,
-          items: p.Items,
-          total: p.Total,
-          isSubmitted: p.IsSubmitted,
-        }) as GroupSessionsResponse['participants'][number]
-    ),
-    total: response.Total,
-  };
 }

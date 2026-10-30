@@ -33,6 +33,7 @@ export class MenuPageComponent implements OnInit {
   isPreOrderEnabled = false;
   preOrderReservationId?: string;
   preOrderReservationLabel?: string;
+  groupOrderReservationId?: string;
 
   sortOptions = Object.values(DishSort);
   sortLabels = DishSortingLabels;
@@ -52,6 +53,7 @@ export class MenuPageComponent implements OnInit {
     this.route.queryParams.subscribe((params) => {
       const preOrder = params['preOrder'];
       this.isPreOrderEnabled = !!preOrder;
+      this.groupOrderReservationId = params['groupOrderReservationId'] || undefined;
       if (this.isPreOrderEnabled) {
         this.preOrderReservationId = params['reservationId'];
         this.preOrderReservationLabel = params['reservationLabel'];
@@ -72,6 +74,13 @@ export class MenuPageComponent implements OnInit {
 
       this.loadDishes();
     });
+  }
+
+  backToGroupOrder(): void {
+    const reservationId = this.groupOrderReservationId;
+    if (reservationId) {
+      void this.router.navigate(['/reservations', reservationId, 'group-order']);
+    }
   }
 
   loadDishes(): void {

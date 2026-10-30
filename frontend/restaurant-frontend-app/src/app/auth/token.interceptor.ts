@@ -17,20 +17,13 @@ export const tokenInterceptor: HttpInterceptorFn = (
 ) => {
   const toastr = inject(ToastService);
 
-  // IMPORTANT: do not modify Guest endpoints at all.
-  // Guest flow uses a different token (guest session token) and we must not touch the body.
-  // Otherwise we break POST /guest/sessions payload.
-  if (req.url.includes('/guest/')) {
-    // /guest/groups/* are Owner-only and use the Cognito token, unlike guest-session endpoints.
-    const ownerToken = req.url.includes('/guest/groups/')
-      ? inject(AuthenticationService).getTokens()?.idToken
-      : undefined;
-    const guestReq =
-      ownerToken && !req.headers.has('Authorization')
-        ? req.clone({ setHeaders: { Authorization: 'Bearer ' + ownerToken } })
-        : req;
+  // Owner-only group-session endpoints use the Cognito token despite their /guest/ path.
+  const isOwnerGroupSessionsEndpoint =
+    /\/guest\/groups\/[^/]+\/sessions(?:\/[^/]+(?:\/items\/[^/]+)?)?$/.test(req.url);
 
-    return next(guestReq).pipe(
+  // Guest flow uses a separate session token and must not be modified here.
+  if (req.url.includes('/guest/') && !isOwnerGroupSessionsEndpoint) {
+    return next(req).pipe(
       catchError((error: HttpErrorResponse) => {
         console.log(error);
 

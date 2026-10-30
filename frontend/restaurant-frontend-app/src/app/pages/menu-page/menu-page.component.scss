@@ -201,3 +201,14 @@
     }
   }
 }
+.back-to-group-order {
+  margin-bottom: 12px;
+  padding: 8px 0;
+  color: color.$green-800;
+  background: transparent;
+  border: 0;
+  font: inherit;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}

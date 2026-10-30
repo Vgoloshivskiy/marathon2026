@@ -67,6 +67,10 @@
   border-bottom: 1px solid color.$neutral-100;
 }
 
+.item--editable {
+  grid-template-columns: 34px 40px minmax(0, 1fr) auto auto;
+}
+
 .avatar {
   width: 40px;
   height: 40px;
@@ -81,7 +85,12 @@
   color: color.$green-800;
 }
 
+.dish-details {
+  min-width: 0;
+}
+
 .name,
+.description,
 .qty,
 .price {
   margin: 0;
@@ -91,9 +100,75 @@
   overflow-wrap: anywhere;
 }
 
+.description {
+  margin-top: 2px;
+  color: color.$neutral-600;
+  font-size: 12px;
+}
+
 .qty,
 .price {
   white-space: nowrap;
+}
+
+.quantity-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.item-action {
+  display: grid;
+  flex: 0 0 auto;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  color: color.$green-800;
+  background: color.$neutral-0;
+  border: 1px solid color.$green-600;
+  border-radius: 7px;
+  font: inherit;
+  cursor: pointer;
+}
+
+.item-action:disabled {
+  color: color.$neutral-400;
+  border-color: color.$neutral-200;
+  cursor: not-allowed;
+}
+
+.quantity-action {
+  width: 30px;
+  height: 30px;
+}
+
+.quantity-action--add {
+  font-size: 20px;
+}
+
+.remove-item {
+  color: color.$neutral-600;
+  border-color: transparent;
+}
+
+.remove-item:hover {
+  background: color.$red-30;
+  border-color: color.$red-100;
+}
+
+.add-dishes-button {
+  min-height: 40px;
+  padding: 8px 0;
+  margin-top: 12px;
+  color: color.$green-800;
+  background: transparent;
+  border: 0;
+  font: inherit;
+  font-weight: 500;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
 }
 
 .empty {
@@ -115,13 +190,28 @@
   }
 
   .item {
-    grid-template-columns: 40px minmax(0, 1fr) auto;
-    gap: 8px;
+    grid-template-columns: 40px minmax(0, 1fr) auto auto;
+    gap: 5px;
     padding: 6px 0;
   }
 
+  .item--editable {
+    grid-template-columns: 30px 34px minmax(0, 1fr) auto auto;
+  }
+
+  .avatar {
+    width: 34px;
+    height: 34px;
+  }
+
+  .quantity-controls {
+    grid-column: 4 / 6;
+    justify-self: end;
+  }
+
   .price {
-    grid-column: 2 / -1;
+    grid-column: 3 / -1;
+    grid-row: 2;
     justify-self: end;
     font-size: 13px;
   }

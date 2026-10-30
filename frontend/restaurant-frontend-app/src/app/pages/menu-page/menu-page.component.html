@@ -19,6 +19,11 @@
   </section>
 
   <section class="info-section">
+    @if (groupOrderReservationId) {
+      <button type="button" class="back-to-group-order" (click)="backToGroupOrder()">
+        Back to group pre-order
+      </button>
+    }
     @if (isPreOrderEnabled) {
       <div class="pre-order-notice">
         You are making a pre-order for a reservation <strong>{{ preOrderReservationLabel }}</strong
