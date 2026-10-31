@@ -1,4 +1,4 @@
-﻿import { CurrencyPipe, DatePipe } from '@angular/common';
+import { CurrencyPipe, DatePipe } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
 import {
   ChangeDetectionStrategy,
@@ -67,7 +67,7 @@ export class GroupOrderPageComponent implements OnInit, OnDestroy {
   readonly submitDialogOpen = signal(false);
   readonly removeGuestTarget = signal<Participant | null>(null);
   readonly removingGuest = signal(false);
-  readonly updatingItem = signal(false);
+  readonly hasPreviewEdits = signal(false);
 
   readonly consolidatedOrder = computed(() => consolidatePreOrder(this.participants()));
   readonly notSubmittedCount = computed(
@@ -86,7 +86,8 @@ export class GroupOrderPageComponent implements OnInit, OnDestroy {
     () =>
       this.groupStatus()?.status === 'Open' &&
       this.consolidatedOrder().items.length > 0 &&
-      !this.submitting()
+      !this.submitting() &&
+      !this.hasPreviewEdits()
   );
   readonly canEditItems = computed(
     () => this.groupStatus()?.status === 'Open' && !this.submitting()
@@ -200,38 +201,38 @@ export class GroupOrderPageComponent implements OnInit, OnDestroy {
       return;
     }
 
-    const invite = this.invite();
-    const target = this.participants().find((participant) => participant.id === event.participantId);
-    const item = target?.items.find((entry) => entry.dish.id === event.dishId);
-    if (!invite || !target || !item || this.updatingItem()) {
-      return;
-    }
+    this.participants.update((participants) =>
+      participants.map((participant) => {
+        if (participant.id !== event.participantId) {
+          return participant;
+        }
 
-    const groupId = invite.GroupReservationId;
-    let request$: Observable<GroupSessionsResponse>;
-    if (event.action === 'remove') {
-      request$ = this.groupOrdersService.removeSessionItem$(groupId, target.id, event.dishId);
-    } else {
-      const quantity = event.action === 'increment' ? item.quantity + 1 : item.quantity - 1;
-      if (quantity < 1) {
-        return;
-      }
-      request$ = this.groupOrdersService.setSessionItemQuantity$(
-        groupId,
-        target.id,
-        event.dishId,
-        quantity
-      );
-    }
+        const selectedItem = participant.items.find((item) => item.dish.id === event.dishId);
+        if (!selectedItem) {
+          return participant;
+        }
 
-    this.updatingItem.set(true);
-    request$.pipe(finalize(() => this.updatingItem.set(false))).subscribe({
-      next: (response) => {
-        this.participants.set(response.participants);
-        this.updatedAt.set(new Date());
-        this.refreshFailed.set(false);
-      },
-    });
+        const items =
+          event.action === 'remove'
+            ? participant.items.filter((item) => item.dish.id !== event.dishId)
+            : participant.items.map((item) => {
+                if (item.dish.id !== event.dishId) {
+                  return item;
+                }
+
+                const quantity =
+                  event.action === 'increment' ? item.quantity + 1 : Math.max(1, item.quantity - 1);
+                return { ...item, quantity };
+              });
+
+        return {
+          ...participant,
+          items,
+          total: items.reduce((total, item) => total + item.dish.price * item.quantity, 0),
+        };
+      })
+    );
+    this.hasPreviewEdits.set(true);
   }
 
   addDishesFromMenu(): void {
@@ -297,7 +298,9 @@ export class GroupOrderPageComponent implements OnInit, OnDestroy {
   }
 
   private setGroupData(sessions: GroupSessionsResponse, status: GroupStatusResponse): void {
-    this.participants.set(sessions.participants);
+    if (!this.hasPreviewEdits()) {
+      this.participants.set(sessions.participants);
+    }
     this.groupStatus.set(status);
     this.updatedAt.set(new Date());
     this.refreshFailed.set(false);

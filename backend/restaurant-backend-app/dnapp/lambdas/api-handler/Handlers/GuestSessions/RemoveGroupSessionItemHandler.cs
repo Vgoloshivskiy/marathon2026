@@ -30,7 +30,7 @@ public class RemoveGroupSessionItemHandler(IGuestSessionService guestSessionServ
         try
         {
             var snapshot = await guestSessionService.RemoveDishFromGroupSessionAsync(userId, groupReservationId, guestSessionId, dishId);
-            return ResponseBuilder.CreateJsonResponse(200, snapshot);
+            return ResponseBuilder.CreateSuccessResponse(snapshot);
         }
         catch (ActionForbiddenException ex)
         {

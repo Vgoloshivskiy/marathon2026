@@ -446,20 +446,14 @@ public class GroupPreOrderFeatureTests
     }
 
     [Fact]
-    public async Task SubmitGroupPreOrderAsync_OrderMissing_CreatesOrderAndSubmits()
+    public async Task SubmitGroupPreOrderAsync_OrderMissing_ThrowsBadRequest()
     {
         SetupGroupAndReservation();
         _sessions.Setup(r => r.GetAllByGroupReservationIdAsync(GroupId)).ReturnsAsync(
-            [Session("submitted", GroupId, [Item("dish", 2)], isSubmitted: true)]);
+            [Session("submitted", GroupId, [Item("dish", 1)], isSubmitted: true)]);
         _orders.Setup(r => r.GetOrderByReservationIdAsync(ReservationId)).ReturnsAsync((Order?)null);
-        _orders.Setup(r => r.SaveOrderAndGroupReservationAsync(It.IsAny<Order>(), It.IsAny<GroupReservation>())).ReturnsAsync(true);
 
-        var result = await GroupService().SubmitGroupPreOrderAsync(UserId, GroupId, ReservationId);
-
-        Assert.Single(result);
-        _orders.Verify(r => r.SaveOrderAndGroupReservationAsync(
-            It.Is<Order>(o => o.ReservationId == ReservationId && o.Status == OrderStatus.SubmittedByCustomer && o.Dishes.Count == 1),
-            It.IsAny<GroupReservation>()), Times.Once);
+        await Assert.ThrowsAsync<ValidationException>(() => GroupService().SubmitGroupPreOrderAsync(UserId, GroupId, ReservationId));
     }
 
     [Fact]

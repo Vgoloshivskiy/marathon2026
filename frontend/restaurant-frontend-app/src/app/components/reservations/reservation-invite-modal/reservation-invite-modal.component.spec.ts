@@ -158,11 +158,6 @@ describe('ReservationInviteModalComponent', () => {
     element.querySelector<HTMLButtonElement>('.pre-order-btn')!.click();
 
     expect(component.closed.emit).toHaveBeenCalled();
-    expect(router.navigate).toHaveBeenCalledWith(
-      ['/menu'],
-      jasmine.objectContaining({
-        queryParams: jasmine.objectContaining({ preOrder: 'true', reservationId: 'res-1' }),
-      })
-    );
+    expect(router.navigate).toHaveBeenCalledWith(['/menu']);
   });
 });

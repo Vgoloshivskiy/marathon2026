@@ -44,7 +44,6 @@ export interface ReservationCustomer {
   preOrders?: Order[];
   createdByName?: string;
   createdByRole?: 'Customer' | 'Waiter';
-  guestInviteLinkAvailable?: boolean;
 }
 
 export enum ReservationStatusCustomer {

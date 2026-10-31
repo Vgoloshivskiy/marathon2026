@@ -10,8 +10,6 @@ import { DishSortingLabels, DishTypeLabels } from '@app/shared/mappers/dish-enum
 import { DishModalComponent } from '@app/components/dish-modal/dish-modal.component';
 import { PreOrdersService } from '@app/services/pre-orders/pre-orders.service';
 import {ToastService} from '@app/services/toast/toast.service';
-import { GroupOrdersService } from '@app/services/group-orders/group-orders.service';
-import { switchMap } from 'rxjs';
 
 @Component({
   selector: 'app-menu-page',
@@ -50,7 +48,6 @@ export class MenuPageComponent implements OnInit {
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   private  readonly orderService = inject(PreOrdersService);
-  private readonly groupOrdersService = inject(GroupOrdersService);
 
   ngOnInit(): void {
     this.route.queryParams.subscribe((params) => {
@@ -151,12 +148,6 @@ export class MenuPageComponent implements OnInit {
   }
 
   addDishToCart(dish: DishListResponse): void {
-    const groupReservationId = this.groupOrderReservationId;
-    if (groupReservationId) {
-      this.addDishToOwnerGroupSession(groupReservationId, dish);
-      return;
-    }
-
     this.orderService
       .addDishToPreOrderByReservationId(this.preOrderReservationId!, dish, 1)
       .subscribe({
@@ -166,31 +157,6 @@ export class MenuPageComponent implements OnInit {
         error: (err) => {
           this.toast.error((err as Error).message, 'Error');
         },
-      });
-  }
-
-  private addDishToOwnerGroupSession(reservationId: string, dish: DishListResponse): void {
-    this.groupOrdersService
-      .getGroupInvite$(reservationId)
-      .pipe(
-        switchMap((invite) =>
-          this.groupOrdersService
-            .getOwnerSessionId$(reservationId)
-            .pipe(
-              switchMap((ownerSessionId) =>
-                this.groupOrdersService.addSessionItem$(
-                  invite.GroupReservationId,
-                  ownerSessionId,
-                  dish.id,
-                  1
-                )
-              )
-            )
-        )
-      )
-      .subscribe({
-        next: () => this.toast.success('Dish added to your group pre-order!', 'Success'),
-        error: (err) => this.toast.error((err as Error).message, 'Error'),
       });
   }
 }

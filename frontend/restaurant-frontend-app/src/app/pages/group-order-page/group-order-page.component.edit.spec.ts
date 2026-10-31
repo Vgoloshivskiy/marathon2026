@@ -1,4 +1,4 @@
-﻿import { TestBed } from '@angular/core/testing';
+import { TestBed } from '@angular/core/testing';
 import { ActivatedRoute, Router, convertToParamMap } from '@angular/router';
 import { of } from 'rxjs';
 import { GroupOrdersService } from '@app/services/group-orders/group-orders.service';
@@ -83,8 +83,6 @@ describe('Group order item edit preview', () => {
       'getOwnerSessionId$',
       'getStatus$',
       'submit$',
-      'setSessionItemQuantity$',
-      'removeSessionItem$',
     ]);
     service.getGroupInvite$.and.returnValue(of(INVITE));
     service.getSessions$.and.returnValue(of(structuredClone(SESSIONS)));
@@ -94,12 +92,8 @@ describe('Group order item edit preview', () => {
     );
   });
 
-  it('shows the owner edit link and saves quantity changes through the API', () => {
+  it('shows owner edit link and updates item quantities locally', () => {
     const { fixture, element } = create();
-    const updated = structuredClone(SESSIONS);
-    updated.participants[0].items[0].quantity = 2;
-    updated.participants[0].total = 360;
-    service.setSessionItemQuantity$.and.returnValue(of(updated));
 
     expect(
       [...element.querySelectorAll('button')].find(
@@ -109,45 +103,49 @@ describe('Group order item edit preview', () => {
     buttonByLabel(element, 'Increase Caesar Salad quantity')?.click();
     fixture.detectChanges();
 
-    expect(service.setSessionItemQuantity$).toHaveBeenCalledWith('grp-1', 'owner', 'dish1', 2);
     const ownerCard = element.querySelector('app-participant-card')!;
     expect(ownerCard.querySelector('.qty')?.textContent?.trim()).toBe('2');
     expect(ownerCard.textContent).toContain('$360.00');
-    expect(element.textContent).not.toContain('preview only');
+    expect(element.textContent).toContain('These edits are a preview only');
+    expect(element.textContent).toContain('1 participant hasn');
+    expect(
+      [...element.querySelectorAll('button')].find(
+        (button) => button.textContent?.trim() === 'Submit Pre-Order'
+      )?.disabled
+    ).toBeTrue();
+    expect(service.submit$).not.toHaveBeenCalled();
   });
 
   it('lets the owner update a guest order while keeping its submitted state', () => {
     const { fixture, element } = create();
-    const updated = structuredClone(SESSIONS);
-    updated.participants[1].items[0].quantity = 3;
-    updated.participants[1].total = 540;
-    service.setSessionItemQuantity$.and.returnValue(of(updated));
     const guestCard = element.querySelectorAll('app-participant-card')[1];
 
     buttonByLabel(guestCard, 'Increase Caesar Salad quantity')?.click();
     fixture.detectChanges();
 
-    expect(service.setSessionItemQuantity$).toHaveBeenCalledWith('grp-1', 'andrii', 'dish1', 3);
     expect(guestCard.querySelector('.qty')?.textContent?.trim()).toBe('3');
     expect(guestCard.textContent).toContain('Submitted');
+    expect(guestCard.textContent).toContain('$540.00');
     expect(element.textContent).toContain('Caesar Salad × 4');
   });
 
-  it('removes an item through the API and shows the returned participants', () => {
+  it('shows item deletion before the dish and removes only that item locally', () => {
     const { fixture, element } = create();
-    const updated = structuredClone(SESSIONS);
-    updated.participants[0].items = [];
-    updated.participants[0].total = 0;
-    service.removeSessionItem$.and.returnValue(of(updated));
 
+    const ownerCard = element.querySelector('app-participant-card')!;
+    const removeButton = buttonByLabel(element, 'Remove Caesar Salad')!;
+    expect(removeButton.compareDocumentPosition(ownerCard.querySelector('.name')!)).toBe(
+      Node.DOCUMENT_POSITION_FOLLOWING
+    );
     buttonByLabel(element, 'Remove Caesar Salad')?.click();
     fixture.detectChanges();
 
-    expect(service.removeSessionItem$).toHaveBeenCalledWith('grp-1', 'owner', 'dish1');
-    const ownerCard = element.querySelector('app-participant-card')!;
+    expect(ownerCard.textContent).not.toContain('Caesar Salad');
     expect(ownerCard.textContent).toContain('No dishes yet');
     expect(element.querySelectorAll('app-participant-card').length).toBe(3);
+    expect(element.textContent).toContain('These edits are a preview only');
   });
+
   it('navigates to the existing menu with preorder and group return parameters', () => {
     const { element } = create();
     [...element.querySelectorAll('button')]
