@@ -64,13 +64,6 @@
       <p class="empty-state">Participants haven't added any dishes yet</p>
     }
 
-    @if (hasPreviewEdits()) {
-      <p class="preview-edit-warning" role="status">
-        These edits are a preview only and have not been saved. Pre-order submission is disabled
-        until editing is connected to the API.
-      </p>
-    }
-
     <section class="order-summary" aria-labelledby="consolidated-heading">
       <h2 id="consolidated-heading">Consolidated pre-order</h2>
       @if (consolidatedOrder().items.length) {

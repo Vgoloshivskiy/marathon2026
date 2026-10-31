@@ -43,7 +43,7 @@ public class GroupReservationService(
         Reservation reservation = await reservationTask ?? throw new ValidationException("Associated reservation not found.");
         int joinedGuestsCount = await countTask;
 
-        if (joinedGuestsCount + 1 >= reservation.GuestCount)
+        if (joinedGuestsCount + 1 > reservation.GuestCount)
             throw new GuestLimitExceededException();
 
         Table table = await tableRepository.GetTableAsync(reservation.TableId)
@@ -179,7 +179,7 @@ public class GroupReservationService(
             throw new ValidationException("Submitted guest sessions do not contain any dishes.");
 
         Order order = await orderRepository.GetOrderByReservationIdAsync(reservationId)
-            ?? throw new ValidationException($"Order for reservation {reservationId} was not found.");
+            ?? await BuildEmptyOrderAsync(reservation);
 
         // Idempotency: already submitted (e.g. client retry) -> do not add the dishes again.
         if (group.Status == GroupReservationStatus.Submitted && order.Status == OrderStatus.SubmittedByCustomer)
@@ -208,6 +208,23 @@ public class GroupReservationService(
         }
 
         return merged;
+    }
+
+    private async Task<Order> BuildEmptyOrderAsync(Reservation reservation)
+    {
+        Table? table = await tableRepository.GetTableAsync(reservation.TableId);
+        Location? location = table is null ? null : await locationService.GetLocationByIdAsync(table.LocationId);
+
+        return new Order
+        {
+            OrderId = Guid.NewGuid().ToString(),
+            CustomerId = reservation.CustomerId ?? string.Empty,
+            ReservationId = reservation.Id,
+            ReservationAddress = location?.Address ?? "Unknown Address",
+            ReservationTime = $"{reservation.StartTime:MMM dd, yyyy, h:mm tt} - {reservation.EndTime:h:mm tt}",
+            Dishes = [],
+            Status = OrderStatus.Created
+        };
     }
 }
 

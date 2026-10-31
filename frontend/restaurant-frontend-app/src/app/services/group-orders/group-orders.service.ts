@@ -57,6 +57,43 @@ export class GroupOrdersService {
     );
   }
 
+  setSessionItemQuantity$(
+    groupId: string,
+    guestSessionId: string,
+    dishId: string,
+    quantity: number
+  ): Observable<GroupSessionsResponse> {
+    return this.http.put<GroupSessionsResponse>(this.sessionItemUrl(groupId, guestSessionId, dishId), {
+      quantity,
+    });
+  }
+
+  addSessionItem$(
+    groupId: string,
+    guestSessionId: string,
+    dishId: string,
+    quantity: number
+  ): Observable<GroupSessionsResponse> {
+    return this.http.post<GroupSessionsResponse>(
+      this.sessionItemUrl(groupId, guestSessionId, dishId),
+      { quantity }
+    );
+  }
+
+  private sessionItemUrl(groupId: string, guestSessionId: string, dishId: string): string {
+    return `${this.baseUrl}/guest/groups/${encodeURIComponent(groupId)}/sessions/${encodeURIComponent(guestSessionId)}/items/${encodeURIComponent(dishId)}`;
+  }
+
+  removeSessionItem$(
+    groupId: string,
+    guestSessionId: string,
+    dishId: string
+  ): Observable<GroupSessionsResponse> {
+    return this.http.delete<GroupSessionsResponse>(
+      `${this.baseUrl}/guest/groups/${encodeURIComponent(groupId)}/sessions/${encodeURIComponent(guestSessionId)}/items/${encodeURIComponent(dishId)}`
+    );
+  }
+
   removeSession$(groupId: string, guestSessionId: string): Observable<GroupSessionsResponse> {
     return this.http.delete<GroupSessionsResponse>(
       `${this.baseUrl}/guest/groups/${encodeURIComponent(groupId)}/sessions/${encodeURIComponent(guestSessionId)}`

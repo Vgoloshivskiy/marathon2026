@@ -265,6 +265,59 @@ public class GuestSessionService(
             ?? throw new DishNotFoundException($"Dish {dishId} not found in guest session.");
 
         session.Dishes!.Remove(item);
+        if (session.IsOwnerSession)
+            session.IsSubmitted = session.Dishes.Count > 0;
+        await guestSessionRepository.SaveAsync(session);
+
+        return await BuildGroupSnapshotAsync(groupReservationId);
+    }
+
+    public async Task<GetAllSessionsResponse> UpdateGroupSessionDishAsync(string userId, string groupReservationId, string guestSessionId, string dishId, int quantity, bool additive)
+    {
+        if (quantity <= 0)
+            throw new ValidationException($"Quantity ({quantity}) must be greater than zero.");
+
+        var group = await groupReservationRepository.GetGroupReservationByIdAsync(groupReservationId)
+            ?? throw new GroupReservationNotFoundException();
+
+        var reservation = await reservationRepository.GetReservationByIdAsync(group.ReservationId)
+            ?? throw new ReservationNotFoundException("Parent reservation not found.");
+
+        if (reservation.CustomerId != userId)
+            throw new ActionForbiddenException("Only the reservation owner can perform this action.");
+
+        if (group.Status == GroupReservationStatus.Submitted)
+            throw new GroupReservationSubmittedException();
+
+        var session = await guestSessionRepository.GetByGuestSessionId(guestSessionId)
+            ?? throw new GuestSessionNotFoundException($"Guest session with id {guestSessionId} not found.");
+
+        if (session.GroupReservationId != groupReservationId)
+            throw new ValidationException("Guest session does not belong to this group reservation.");
+
+        session.Dishes ??= [];
+        var existing = session.Dishes.FirstOrDefault(d => d.DishId == dishId);
+
+        if (existing is null || additive)
+        {
+            string locationId = await GetLocationIdForGroupAsync(groupReservationId);
+            var locationDishes = await dishRepository.GetDishesByLocationIdAsync(locationId);
+            var dish = locationDishes.FirstOrDefault(d => d.Id == dishId)
+                ?? throw new ValidationException($"Dish '{dishId}' does not exist or is not available at this location.");
+
+            if (dish.State != DishState.Available)
+                throw new DishIsNotAvailableException($"Dish '{dishId}' is currently unavailable. State: '{dish.State}'.");
+        }
+
+        if (existing is null)
+            session.Dishes.Add(new OrderItem { DishId = dishId, Quantity = quantity, State = OrderItemState.Pending });
+        else
+            existing.Quantity = additive ? existing.Quantity + quantity : quantity;
+
+        // The owner's cart has no separate submit step: it is included in the group order as soon as it has dishes.
+        if (session.IsOwnerSession)
+            session.IsSubmitted = session.Dishes.Count > 0;
+
         await guestSessionRepository.SaveAsync(session);
 
         return await BuildGroupSnapshotAsync(groupReservationId);

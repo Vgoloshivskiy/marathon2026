@@ -196,6 +196,8 @@ public static class RouteRegistry
             new RouteHandler(new Route(HttpMethods.GET, "/reservations/{reservationId}/invite-token"), ActivatorUtilities.CreateInstance<GetInviteTokenHandler>(provider)),
             new RouteHandler(new Route(HttpMethods.DELETE, "/guest/groups/{groupReservationId}/sessions/{guestSessionId}"), ActivatorUtilities.CreateInstance<DeleteGuestSessionHandler>(provider)),
             new RouteHandler(new Route(HttpMethods.DELETE, "/guest/groups/{groupReservationId}/sessions/{guestSessionId}/items/{dishId}"), ActivatorUtilities.CreateInstance<RemoveGroupSessionItemHandler>(provider)),
+            new RouteHandler(new Route(HttpMethods.POST, "/guest/groups/{groupReservationId}/sessions/{guestSessionId}/items/{dishId}"), ActivatorUtilities.CreateInstance<UpdateGroupSessionItemHandler>(provider, true)),
+            new RouteHandler(new Route(HttpMethods.PUT, "/guest/groups/{groupReservationId}/sessions/{guestSessionId}/items/{dishId}"), ActivatorUtilities.CreateInstance<UpdateGroupSessionItemHandler>(provider, false)),
             new RouteHandler(new Route(HttpMethods.GET, "/guest/groups/{groupReservationId}/sessions"), ActivatorUtilities.CreateInstance<GetGroupSessionsHandler>(provider)),
             new RouteHandler(new Route(HttpMethods.GET, "/reservations/{reservationId}/guest-session-id"), ActivatorUtilities.CreateInstance<GetOwnerGuestSessionIdHandler>(provider)),
             new RouteHandler(new Route(HttpMethods.POST, "/group-reservations/{groupReservationId}/submit"), ActivatorUtilities.CreateInstance<SubmitGroupPreOrderHandler>(provider))

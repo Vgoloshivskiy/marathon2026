@@ -196,6 +196,21 @@
       }
     }
 
+    @if (
+      role() === Roles.CUSTOMER &&
+      r().guestInviteLinkAvailable &&
+      (r().status === ReservationStatusCustomer.Reserved ||
+        r().status === ReservationStatusCustomer.InProgress)
+    ) {
+      <button
+        type="button"
+        class="button button--secondary button--large"
+        (click)="onOpenGroupOrder()"
+      >
+        Group Pre-Order
+      </button>
+    }
+
     @if (role() === Roles.CUSTOMER) {
       @if (
         r().status !==

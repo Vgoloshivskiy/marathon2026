@@ -173,6 +173,11 @@ export class CardReservationComponent {
       queryParams,
     });
   }
+
+  onOpenGroupOrder(): void {
+    void this.router.navigate(['/reservations', this.r().id, 'group-order']);
+  }
+
   onPreOrderWaiter(): void {
     if (this.preOrderItemCount() > 0) {
       this.navigateToWaiterPreOrder();
