@@ -1,4 +1,4 @@
-import { DatePipe } from '@angular/common';
+  import { DatePipe } from '@angular/common';
 import {
   ChangeDetectionStrategy,
   Component,
@@ -129,6 +129,10 @@ export class CardReservationComponent {
     return this.r().preOrder?.orderItems?.length ?? 0;
   });
 
+  readonly isGroupReservation = computed(() => {
+    return this.r().guestInviteLinkAvailable ?? this.r().guestCount > 1;
+  });
+
   readonly canOpenWaiterPreOrder = computed(() => {
     return (
       this.preOrderItemCount() > 0 ||
@@ -151,6 +155,16 @@ export class CardReservationComponent {
 
   onPreOrder(): void {
     const reservation = this.r();
+
+    if (this.isGroupReservation()) {
+      void this.router.navigate([
+        '/reservations',
+        reservation.id,
+        'group-order',
+      ]);
+      return;
+    }
+
     const startTime = new Date(reservation.startTime);
     const endTime = new Date(reservation.endTime);
 

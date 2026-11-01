@@ -1,5 +1,5 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { provideRouter } from '@angular/router';
+import { provideRouter, Router } from '@angular/router';
 import { CardReservationComponent } from './card-reservation.component';
 import { API_BASE_URL } from '@app/shared/config/api-base-url.token';
 import { ReservationCustomer, ReservationStatusCustomer } from '@app/models/reservations/reservation.model';
@@ -19,6 +19,7 @@ const RESERVATION: ReservationCustomer = {
 describe('CardReservationComponent', () => {
   let component: CardReservationComponent;
   let fixture: ComponentFixture<CardReservationComponent>;
+  let router: Router;
 
   beforeEach(async () => {
     await TestBed.configureTestingModule({
@@ -28,6 +29,7 @@ describe('CardReservationComponent', () => {
 
     fixture = TestBed.createComponent(CardReservationComponent);
     component = fixture.componentInstance;
+    router = TestBed.inject(Router);
     // r — обов'язковий input: без нього компонент падає з NG0950
     fixture.componentRef.setInput('r', RESERVATION);
     fixture.detectChanges();
@@ -35,5 +37,32 @@ describe('CardReservationComponent', () => {
 
   it('should create', () => {
     expect(component).toBeTruthy();
+  });
+
+  it('navigates to group pre-order page for group reservation', () => {
+    spyOn(router, 'navigate').and.resolveTo(true);
+
+    component.onPreOrder();
+
+    expect(router.navigate).toHaveBeenCalledOnceWith(['/reservations', 'res-1', 'group-order']);
+  });
+
+  it('navigates to menu pre-order for non-group reservation', () => {
+    spyOn(router, 'navigate').and.resolveTo(true);
+    fixture.componentRef.setInput('r', {
+      ...RESERVATION,
+      guestCount: 1,
+      guestInviteLinkAvailable: false,
+    });
+    fixture.detectChanges();
+
+    component.onPreOrder();
+
+    expect(router.navigate).toHaveBeenCalledOnceWith(['/menu'], {
+      queryParams: jasmine.objectContaining({
+        preOrder: 'true',
+        reservationId: 'res-1',
+      }),
+    });
   });
 });
