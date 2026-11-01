@@ -151,13 +151,21 @@ describe('ReservationInviteModalComponent', () => {
     expect(router.navigate).toHaveBeenCalledWith(['/reservations']);
   });
 
-  it('closes and navigates to the menu on Make Pre-Order', () => {
+  it('closes and navigates to pre-order enabled menu on Make Pre-Order', () => {
     render(BASE_RESERVATION);
     spyOn(component.closed, 'emit');
 
     element.querySelector<HTMLButtonElement>('.pre-order-btn')!.click();
 
     expect(component.closed.emit).toHaveBeenCalled();
-    expect(router.navigate).toHaveBeenCalledWith(['/menu']);
+    expect(router.navigate).toHaveBeenCalledWith(
+      ['/menu'],
+      jasmine.objectContaining({
+        queryParams: jasmine.objectContaining({
+          preOrder: 'true',
+          reservationId: 'res-1',
+        }),
+      })
+    );
   });
 });
