@@ -100,6 +100,22 @@ public class GroupPreOrderFeatureTests
     }
 
     [Fact]
+    public async Task GetGroupSessionsAsync_SubmittedGroup_ReturnsReadOnlySnapshotForOwner()
+    {
+        var group = Group();
+        group.Status = GroupReservationStatus.Submitted;
+        var owner = Session("owner-session", GroupId, [Item("pasta", 2)], isOwner: true, isSubmitted: true);
+        SetupOwner(group, Reservation());
+        _sessions.Setup(r => r.GetAllByGroupReservationIdAsync(GroupId)).ReturnsAsync([owner]);
+        _dishes.Setup(r => r.GetDishesByIdsAsync(It.IsAny<IEnumerable<string>>())).ReturnsAsync([Dish("pasta", 4m)]);
+
+        var result = await GuestService().GetGroupSessionsAsync(UserId, GroupId);
+
+        Assert.Equal(8m, result.Total);
+        Assert.True(Assert.Single(result.Participants).IsSubmitted);
+    }
+
+    [Fact]
     public async Task GetGroupSessionsAsync_GroupMissing_ThrowsNotFound()
     {
         _groups.Setup(r => r.GetGroupReservationByIdAsync(GroupId)).ReturnsAsync((GroupReservation?)null);
@@ -122,6 +138,20 @@ public class GroupPreOrderFeatureTests
         SetupOwner(Group(), Reservation(customerId: "someone-else"));
 
         await Assert.ThrowsAsync<ActionForbiddenException>(() => GuestService().GetGroupSessionsAsync(UserId, GroupId));
+    }
+
+    [Fact]
+    public async Task GetGroupReservationStatusAsync_SubmittedGroup_ReturnsSubmittedStatus()
+    {
+        var group = Group();
+        group.Status = GroupReservationStatus.Submitted;
+        _groups.Setup(r => r.GetGroupReservationByIdAsync(GroupId)).ReturnsAsync(group);
+        _reservations.Setup(r => r.GetReservationByIdAsync(ReservationId)).ReturnsAsync(Reservation());
+        _sessions.Setup(r => r.GetAllByGroupReservationIdAsync(GroupId)).ReturnsAsync([]);
+
+        var result = await GuestService().GetGroupReservationStatusAsync(GroupId);
+
+        Assert.Equal(GroupReservationStatus.Submitted, result.Status);
     }
 
     [Fact]
@@ -163,12 +193,14 @@ public class GroupPreOrderFeatureTests
     }
 
     [Fact]
-    public async Task GetOwnerGuestSessionIdAsync_OwnerSessionExists_ReturnsExistingWithoutCreating()
+    public async Task GetOwnerGuestSessionIdAsync_SubmittedGroup_ReturnsExistingOwnerSession()
     {
         var existing = Session("existing-owner-session", GroupId, [], isOwner: true);
         existing.OwnerUserId = UserId;
+        var group = Group();
+        group.Status = GroupReservationStatus.Submitted;
         _reservations.Setup(r => r.GetReservationByIdAsync(ReservationId)).ReturnsAsync(Reservation());
-        _groups.Setup(r => r.GetByReservationIdAsync(ReservationId)).ReturnsAsync(Group());
+        _groups.Setup(r => r.GetByReservationIdAsync(ReservationId)).ReturnsAsync(group);
         _sessions.Setup(r => r.GetAllByGroupReservationIdAsync(GroupId)).ReturnsAsync([existing]);
 
         var result = await GuestService().GetOwnerGuestSessionIdAsync(UserId, ReservationId);
@@ -414,6 +446,21 @@ public class GroupPreOrderFeatureTests
 
         await Assert.ThrowsAsync<ActionForbiddenException>(() => GuestService().DeleteGuestSessionAsync(UserId, GroupId, "guest"));
         _sessions.Verify(r => r.GetByGuestSessionId(It.IsAny<string>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task DeleteGuestSessionAsync_SubmittedGroup_ThrowsSubmittedWithoutDeleting()
+    {
+        var group = Group();
+        group.Status = GroupReservationStatus.Submitted;
+        SetupOwner(group, Reservation());
+        var guest = Session("guest", GroupId, []);
+        _sessions.Setup(r => r.GetByGuestSessionId(guest.Id)).ReturnsAsync(guest);
+
+        await Assert.ThrowsAsync<GroupReservationSubmittedException>(() =>
+            GuestService().DeleteGuestSessionAsync(UserId, GroupId, guest.Id));
+
+        _sessions.Verify(r => r.DeleteAsync(It.IsAny<GuestSession>()), Times.Never);
     }
 
     [Fact]

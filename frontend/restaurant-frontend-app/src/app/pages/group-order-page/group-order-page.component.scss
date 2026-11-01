@@ -62,6 +62,7 @@ h1 {
 
 .submission-warning,
 .refresh-warning,
+.read-only-notice,
 .preview-edit-warning {
   padding: 12px 14px;
   margin: 16px 0;
@@ -81,6 +82,11 @@ h1 {
 }
 
 .preview-edit-warning {
+  background: color.$blue-100;
+  border: 1px solid color.$blue-400;
+}
+
+.read-only-notice {
   background: color.$blue-100;
   border: 1px solid color.$blue-400;
 }

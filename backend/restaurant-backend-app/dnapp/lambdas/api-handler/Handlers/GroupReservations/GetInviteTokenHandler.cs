@@ -16,10 +16,20 @@ public class GetInviteTokenHandler(IGroupReservationService service) : IApiReque
         if (!request.TryGetPathValue("reservationId", out string? reservationId))
             return ResponseBuilder.CreateErrorResponse(404, "Reservation was not found", context.Logger);
 
+        if (request.RequestContext?.Authorizer?.Claims == null ||
+            !request.RequestContext.Authorizer.Claims.TryGetValue("sub", out string? userId))
+        {
+            return ResponseBuilder.CreateErrorResponse(401, "Unauthorized.", context.Logger);
+        }
+
         try
         {
-            GetGroupInviteTokenResponse result = await service.GetGroupReservationInviteTokenAsync(reservationId);
+            GetGroupInviteTokenResponse result = await service.GetGroupReservationInviteTokenAsync(userId, reservationId);
             return ResponseBuilder.CreateJsonResponse(200, result);
+        }
+        catch (ActionForbiddenException exception)
+        {
+            return ResponseBuilder.CreateErrorResponse(403, exception.Message, context.Logger);
         }
         catch (ReservationNotFoundException exception)
         {

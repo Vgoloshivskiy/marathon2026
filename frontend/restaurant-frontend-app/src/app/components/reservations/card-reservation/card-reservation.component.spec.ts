@@ -47,6 +47,37 @@ describe('CardReservationComponent', () => {
     expect(router.navigate).toHaveBeenCalledOnceWith(['/reservations', 'res-1', 'group-order']);
   });
 
+  it('navigates to read-only group pre-order page for submitted group reservation', () => {
+    spyOn(router, 'navigate').and.resolveTo(true);
+    fixture.componentRef.setInput('r', {
+      ...RESERVATION,
+      hasSubmittedPreOrder: true,
+      guestInviteLinkAvailable: false,
+    });
+    fixture.detectChanges();
+
+    component.onPreOrder();
+
+    expect(router.navigate).toHaveBeenCalledOnceWith(['/reservations', 'res-1', 'group-order'], {
+      queryParams: { readonly: 'true' },
+    });
+  });
+
+  it('does not use read-only mode for submitted single-guest reservation', () => {
+    spyOn(router, 'navigate').and.resolveTo(true);
+    fixture.componentRef.setInput('r', {
+      ...RESERVATION,
+      guestCount: 1,
+      hasSubmittedPreOrder: true,
+      guestInviteLinkAvailable: false,
+    });
+    fixture.detectChanges();
+
+    component.onPreOrder();
+
+    expect(router.navigate).toHaveBeenCalledOnceWith(['/menu'], jasmine.anything());
+  });
+
   it('navigates to menu pre-order for non-group reservation', () => {
     spyOn(router, 'navigate').and.resolveTo(true);
     fixture.componentRef.setInput('r', {

@@ -36,13 +36,21 @@ function buttonByText(root: ParentNode, text: string): HTMLButtonElement | undef
 describe('Рівень 2 · сторінка Owner Review', () => {
   let service: jasmine.SpyObj<GroupOrdersService>;
 
-  function create() {
+  function create(queryParams: Record<string, string> = {}) {
     TestBed.configureTestingModule({
       imports: [GroupOrderPageComponent],
       providers: [
         { provide: GroupOrdersService, useValue: service },
         { provide: ToastService, useValue: jasmine.createSpyObj('ToastService', ['success', 'error', 'info']) },
-        { provide: ActivatedRoute, useValue: { snapshot: { paramMap: convertToParamMap({ reservationId: 'res-1' }) } } },
+        {
+          provide: ActivatedRoute,
+          useValue: {
+            snapshot: {
+              paramMap: convertToParamMap({ reservationId: 'res-1' }),
+              queryParamMap: convertToParamMap(queryParams),
+            },
+          },
+        },
       ],
     });
     const fixture = TestBed.createComponent(GroupOrderPageComponent);
@@ -58,6 +66,24 @@ describe('Рівень 2 · сторінка Owner Review', () => {
     service.getSessions$.and.returnValue(of(structuredClone(SESSIONS)));
     service.getOwnerSessionId$.and.returnValue(of('owner'));
     service.getStatus$.and.returnValue(of({ currentParticipants: 3, maxCapacity: 5, status: 'Open' as const }));
+  });
+
+  describe('read-only режим', () => {
+    it('?readonly=true: показує плашку, ховає Submit, вимикає редагування', () => {
+      const { fixture, element } = create({ readonly: 'true' });
+      expect(element.textContent).toContain('Read-only view');
+      expect(buttonByText(element, 'Submit Pre-Order')).toBeUndefined();
+      expect(fixture.componentInstance.canSubmit()).toBeFalse();
+      expect(fixture.componentInstance.canEditItems()).toBeFalse();
+      expect(fixture.componentInstance.canRemoveGuests()).toBeFalse();
+    });
+
+    it('без параметра: плашки немає, Submit є', () => {
+      const { fixture, element } = create();
+      expect(element.textContent).not.toContain('Read-only view');
+      expect(buttonByText(element, 'Submit Pre-Order')).toBeDefined();
+      expect(fixture.componentInstance.canEditItems()).toBeTrue();
+    });
   });
 
   describe('дані', () => {

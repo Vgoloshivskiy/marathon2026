@@ -133,6 +133,19 @@ export class CardReservationComponent {
     return this.r().guestInviteLinkAvailable ?? this.r().guestCount > 1;
   });
 
+  /**
+   * Backend sets guestInviteLinkAvailable=false once the group is no longer Open
+   * (i.e. submitted) and hasSubmittedPreOrder=true when the order was submitted.
+   */
+  readonly isSubmittedGroupReservation = computed(() => {
+    const reservation = this.r();
+    return (
+      reservation.hasSubmittedPreOrder === true &&
+      reservation.guestInviteLinkAvailable !== true &&
+      reservation.guestCount > 1
+    );
+  });
+
   readonly canOpenWaiterPreOrder = computed(() => {
     return (
       this.preOrderItemCount() > 0 ||
@@ -155,6 +168,13 @@ export class CardReservationComponent {
 
   onPreOrder(): void {
     const reservation = this.r();
+
+    if (this.isSubmittedGroupReservation()) {
+      void this.router.navigate(['/reservations', reservation.id, 'group-order'], {
+        queryParams: { readonly: 'true' },
+      });
+      return;
+    }
 
     if (this.isGroupReservation()) {
       void this.router.navigate([

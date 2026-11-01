@@ -34,7 +34,7 @@ public class GroupReservationService(
         GroupReservation groupReservation = await groupReservationRepository.GetGroupReservationByTokenAsync(token)
             ?? throw new GroupReservationNotFoundException();
 
-        if (groupReservation.Status != GroupReservationStatus.Open)
+        if (groupReservation.Status is not (GroupReservationStatus.Open or GroupReservationStatus.Submitted))
             throw new GroupReservationExpiredException();
 
         Task<Reservation?> reservationTask = reservationRepository.GetReservationByIdAsync(groupReservation.ReservationId);
@@ -123,10 +123,13 @@ public class GroupReservationService(
         await groupReservationRepository.SaveGroupReservationAsync(groupReservation);
     }
 
-    public async Task<GetGroupInviteTokenResponse> GetGroupReservationInviteTokenAsync(string reservationId)
+    public async Task<GetGroupInviteTokenResponse> GetGroupReservationInviteTokenAsync(string userId, string reservationId)
     {
         var reservation = await reservationRepository.GetReservationByIdAsync(reservationId)
             ?? throw new ReservationNotFoundException($"Reservation {reservationId} was not found.");
+
+        if (reservation.CustomerId != userId)
+            throw new ActionForbiddenException("Only the reservation owner can perform this action.");
 
         if (reservation.GuestCount < 2)
             throw new ValidationException("Retrieving invitation token for the reservation with only one guest is not permitted.");
@@ -135,9 +138,6 @@ public class GroupReservationService(
             throw new GroupReservationExpiredException("The group reservation is expired.");
 
         GroupReservation groupReservation = (await groupReservationRepository.GetByReservationIdAsync(reservationId))!;
-
-        if (groupReservation.Status == GroupReservationStatus.Submitted)
-            throw new GroupReservationSubmittedException();
 
         if (groupReservation.Status == GroupReservationStatus.Closed)
             throw new GroupReservationExpiredException();

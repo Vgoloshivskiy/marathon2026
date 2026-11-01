@@ -520,6 +520,8 @@ Response: `200 OK`
 ```
 
 ### `GET` /reservations/{reservationId}/invite-token
+Owner only (Cognito `sub` must equal `reservation.CustomerId`). Available for open and submitted group reservations so the owner can load a read-only submitted order.
+
 Response: `200 OK`
 ```json
 {
@@ -1078,6 +1080,8 @@ Response: `200 OK`
 ## Group & Guest Reservations
 
 ### `GET` /guest/invites/{token}
+Token-based read; returns group details for open or submitted groups (submitted groups cannot accept new sessions).
+
 Response: `200 OK`
 ```json
 {
@@ -1225,7 +1229,7 @@ Owner only. Response: 200 OK
 ### `DELETE` /guest/groups/{groupReservationId}/sessions/{guestSessionId}
 Owner only. Deletes the guest session and returns the updated snapshot (same shape as `GET /guest/groups/{groupReservationId}/sessions`).
 
-Errors: `401`, `403` (not owner), `404` (group reservation or session not found), `400` (session belongs to another group, or is the owner session).
+Errors: `401`, `403` (not owner), `404` (group reservation or session not found), `400` (session belongs to another group, is the owner session, or group already `Submitted`; the latter has `errorCode: GroupReservationSubmitted`).
 
 ### `DELETE` /guest/groups/{groupReservationId}/sessions/{guestSessionId}/items/{dishId}
 Owner only (Cognito `sub` must equal `reservation.CustomerId`). Removes the whole line item `dishId` (all its quantity) from any session of the group (guest or owner) and returns the updated snapshot (same shape as `GET /guest/groups/{groupReservationId}/sessions`). Cart items have no separate id; `dishId` identifies the item within a session.

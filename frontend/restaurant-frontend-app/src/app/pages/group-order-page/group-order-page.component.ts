@@ -79,18 +79,24 @@ export class GroupOrderPageComponent implements OnInit, OnDestroy {
       this.participants().every((participant) => participant.items.length === 0)
   );
   readonly isSubmitted = computed(() => this.groupStatus()?.status === 'Submitted');
+  readonly readOnly = signal(false);
   readonly canRemoveGuests = computed(
-    () => this.groupStatus()?.status === 'Open' && !this.submitting()
+    () => !this.readOnly() && this.groupStatus()?.status === 'Open' && !this.submitting()
   );
   readonly canSubmit = computed(
     () =>
+      !this.readOnly() &&
       this.groupStatus()?.status === 'Open' &&
       this.consolidatedOrder().items.length > 0 &&
       !this.submitting() &&
       !this.editing()
   );
   readonly canEditItems = computed(
-    () => this.groupStatus()?.status === 'Open' && !this.submitting() && !this.editing()
+    () =>
+      !this.readOnly() &&
+      this.groupStatus()?.status === 'Open' &&
+      !this.submitting() &&
+      !this.editing()
   );
   readonly statusLabel = computed(() => {
     const status = this.groupStatus()?.status;
@@ -111,6 +117,7 @@ export class GroupOrderPageComponent implements OnInit, OnDestroy {
       return;
     }
     this.reservationId.set(id);
+    this.readOnly.set(this.route.snapshot.queryParamMap?.get('readonly') === 'true');
     this.loadGroup();
   }
 
