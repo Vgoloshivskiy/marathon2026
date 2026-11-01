@@ -67,7 +67,7 @@ export class GroupOrderPageComponent implements OnInit, OnDestroy {
   readonly submitDialogOpen = signal(false);
   readonly removeGuestTarget = signal<Participant | null>(null);
   readonly removingGuest = signal(false);
-  readonly hasPreviewEdits = signal(false);
+  readonly editing = signal(false);
 
   readonly consolidatedOrder = computed(() => consolidatePreOrder(this.participants()));
   readonly notSubmittedCount = computed(
@@ -87,10 +87,10 @@ export class GroupOrderPageComponent implements OnInit, OnDestroy {
       this.groupStatus()?.status === 'Open' &&
       this.consolidatedOrder().items.length > 0 &&
       !this.submitting() &&
-      !this.hasPreviewEdits()
+      !this.editing()
   );
   readonly canEditItems = computed(
-    () => this.groupStatus()?.status === 'Open' && !this.submitting()
+    () => this.groupStatus()?.status === 'Open' && !this.submitting() && !this.editing()
   );
   readonly statusLabel = computed(() => {
     const status = this.groupStatus()?.status;
@@ -197,43 +197,60 @@ export class GroupOrderPageComponent implements OnInit, OnDestroy {
     dishId: string;
     action: 'increment' | 'decrement' | 'remove';
   }): void {
-    if (!this.canEditItems()) {
+    const invite = this.invite();
+    if (!invite || !this.canEditItems()) {
       return;
     }
 
-    this.participants.update((participants) =>
-      participants.map((participant) => {
-        if (participant.id !== event.participantId) {
-          return participant;
-        }
+    const participant = this.participants().find((person) => person.id === event.participantId);
+    const item = participant?.items.find((entry) => entry.dish.id === event.dishId);
+    if (!participant || !item) {
+      return;
+    }
 
-        const selectedItem = participant.items.find((item) => item.dish.id === event.dishId);
-        if (!selectedItem) {
-          return participant;
-        }
+    if (event.action === 'remove') {
+      this.runEdit$(
+        this.groupOrdersService.removeSessionItem$(
+          invite.GroupReservationId,
+          participant.id,
+          event.dishId
+        )
+      );
+      return;
+    }
 
-        const items =
-          event.action === 'remove'
-            ? participant.items.filter((item) => item.dish.id !== event.dishId)
-            : participant.items.map((item) => {
-                if (item.dish.id !== event.dishId) {
-                  return item;
-                }
+    const quantity = item.quantity + (event.action === 'increment' ? 1 : -1);
+    if (quantity < 1) {
+      return;
+    }
 
-                const quantity =
-                  event.action === 'increment' ? item.quantity + 1 : Math.max(1, item.quantity - 1);
-                return { ...item, quantity };
-              });
-
-        return {
-          ...participant,
-          items,
-          total: items.reduce((total, item) => total + item.dish.price * item.quantity, 0),
-        };
-      })
+    this.runEdit$(
+      this.groupOrdersService.setSessionItemQuantity$(
+        invite.GroupReservationId,
+        participant.id,
+        event.dishId,
+        quantity
+      )
     );
-    this.hasPreviewEdits.set(true);
   }
+
+  private runEdit$(request$: Observable<GroupSessionsResponse>): void {
+    this.editing.set(true);
+    request$
+      .pipe(
+        finalize(() => this.editing.set(false)),
+        catchError(() => {
+          this.refresh();
+          return EMPTY;
+        })
+      )
+      .subscribe((response) => {
+        this.participants.set(response.participants);
+        this.updatedAt.set(new Date());
+        this.refreshFailed.set(false);
+      });
+  }
+
 
   addDishesFromMenu(): void {
     const reservationId = this.reservationId();
@@ -300,9 +317,7 @@ export class GroupOrderPageComponent implements OnInit, OnDestroy {
   }
 
   private setGroupData(sessions: GroupSessionsResponse, status: GroupStatusResponse): void {
-    if (!this.hasPreviewEdits()) {
-      this.participants.set(sessions.participants);
-    }
+    this.participants.set(sessions.participants);
     this.groupStatus.set(status);
     this.updatedAt.set(new Date());
     this.refreshFailed.set(false);

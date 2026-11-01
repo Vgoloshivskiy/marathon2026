@@ -293,6 +293,98 @@ public class GroupPreOrderFeatureTests
     }
 
     [Fact]
+    public async Task SetDishQuantityInGroupSessionAsync_PositiveQuantity_SetsAbsoluteAndReturnsSnapshot()
+    {
+        var guest = Session("guest", GroupId, [Item("a", 2), Item("b", 1)]);
+        SetupOwner(Group(), Reservation());
+        _sessions.Setup(r => r.GetByGuestSessionId("guest")).ReturnsAsync(guest);
+        _sessions.Setup(r => r.GetAllByGroupReservationIdAsync(GroupId)).ReturnsAsync([guest]);
+        _dishes.Setup(r => r.GetDishesByIdsAsync(It.IsAny<IEnumerable<string>>())).ReturnsAsync([Dish("a", 5m), Dish("b", 1m)]);
+
+        var result = await GuestService().SetDishQuantityInGroupSessionAsync(UserId, GroupId, "guest", "a", 4);
+
+        _sessions.Verify(r => r.SaveAsync(guest), Times.Once);
+        Assert.Equal(4, guest.Dishes.Single(d => d.DishId == "a").Quantity);
+        Assert.Equal(21m, result.Total);
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(-3)]
+    public async Task SetDishQuantityInGroupSessionAsync_NonPositiveQuantity_RemovesLine(int quantity)
+    {
+        var guest = Session("guest", GroupId, [Item("a", 2), Item("b", 1)]);
+        SetupOwner(Group(), Reservation());
+        _sessions.Setup(r => r.GetByGuestSessionId("guest")).ReturnsAsync(guest);
+        _sessions.Setup(r => r.GetAllByGroupReservationIdAsync(GroupId)).ReturnsAsync([guest]);
+        _dishes.Setup(r => r.GetDishesByIdsAsync(It.IsAny<IEnumerable<string>>())).ReturnsAsync([Dish("b", 5m)]);
+
+        var result = await GuestService().SetDishQuantityInGroupSessionAsync(UserId, GroupId, "guest", "a", quantity);
+
+        _sessions.Verify(r => r.SaveAsync(guest), Times.Once);
+        Assert.DoesNotContain(guest.Dishes, d => d.DishId == "a");
+        Assert.Equal(5m, result.Total);
+    }
+
+    [Fact]
+    public async Task SetDishQuantityInGroupSessionAsync_NonOwner_ThrowsForbidden()
+    {
+        SetupOwner(Group(), Reservation(customerId: "other"));
+
+        await Assert.ThrowsAsync<ActionForbiddenException>(() => GuestService().SetDishQuantityInGroupSessionAsync(UserId, GroupId, "guest", "a", 2));
+        _sessions.Verify(r => r.SaveAsync(It.IsAny<GuestSession>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task SetDishQuantityInGroupSessionAsync_GroupMissing_ThrowsNotFound()
+    {
+        _groups.Setup(r => r.GetGroupReservationByIdAsync(GroupId)).ReturnsAsync((GroupReservation?)null);
+
+        await Assert.ThrowsAsync<GroupReservationNotFoundException>(() => GuestService().SetDishQuantityInGroupSessionAsync(UserId, GroupId, "guest", "a", 2));
+    }
+
+    [Fact]
+    public async Task SetDishQuantityInGroupSessionAsync_SessionMissing_ThrowsNotFound()
+    {
+        SetupOwner(Group(), Reservation());
+        _sessions.Setup(r => r.GetByGuestSessionId("guest")).ReturnsAsync((GuestSession?)null);
+
+        await Assert.ThrowsAsync<GuestSessionNotFoundException>(() => GuestService().SetDishQuantityInGroupSessionAsync(UserId, GroupId, "guest", "a", 2));
+    }
+
+    [Fact]
+    public async Task SetDishQuantityInGroupSessionAsync_ItemMissing_ThrowsNotFound()
+    {
+        SetupOwner(Group(), Reservation());
+        _sessions.Setup(r => r.GetByGuestSessionId("guest")).ReturnsAsync(Session("guest", GroupId, [Item("b", 1)]));
+
+        await Assert.ThrowsAsync<DishNotFoundException>(() => GuestService().SetDishQuantityInGroupSessionAsync(UserId, GroupId, "guest", "a", 2));
+        _sessions.Verify(r => r.SaveAsync(It.IsAny<GuestSession>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task SetDishQuantityInGroupSessionAsync_OtherGroup_ThrowsValidation()
+    {
+        SetupOwner(Group(), Reservation());
+        _sessions.Setup(r => r.GetByGuestSessionId("guest")).ReturnsAsync(Session("guest", "another", [Item("a", 1)]));
+
+        await Assert.ThrowsAsync<ValidationException>(() => GuestService().SetDishQuantityInGroupSessionAsync(UserId, GroupId, "guest", "a", 2));
+        _sessions.Verify(r => r.SaveAsync(It.IsAny<GuestSession>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task SetDishQuantityInGroupSessionAsync_GroupSubmitted_ThrowsSubmitted()
+    {
+        var group = Group();
+        group.Status = GroupReservationStatus.Submitted;
+        SetupOwner(group, Reservation());
+        _sessions.Setup(r => r.GetByGuestSessionId("guest")).ReturnsAsync(Session("guest", GroupId, [Item("a", 1)]));
+
+        await Assert.ThrowsAsync<GroupReservationSubmittedException>(() => GuestService().SetDishQuantityInGroupSessionAsync(UserId, GroupId, "guest", "a", 2));
+        _sessions.Verify(r => r.SaveAsync(It.IsAny<GuestSession>()), Times.Never);
+    }
+
+    [Fact]
     public async Task GetGroupSessionsAsync_OrdersOwnerFirstThenByName()
     {
         SetupOwner(Group(), Reservation());

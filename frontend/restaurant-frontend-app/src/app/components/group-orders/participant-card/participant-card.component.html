@@ -58,7 +58,7 @@
             }
           </div>
           @if (canEditItems()) {
-            <div class="quantity-controls" [attr.aria-label]="item.dish.name + ' quantity'">
+            <div class="quantity-controls" role="group" [attr.aria-label]="item.dish.name + ' quantity'">
               <button
                 type="button"
                 class="item-action quantity-action"

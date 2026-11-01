@@ -1,0 +1,64 @@
+{
+  "Waiters": [
+    {
+      "PutRequest": {
+        "Item": {
+          "userId": { "S": "1a5d4c11-8c22-4ec1-ae95-7c5be09e13a1" },
+          "locationId": { "S": "7d598da3-0887-4a04-a3a1-fe26d8a4a4f2" },
+          "createdAt": { "S": "2026-11-01T00:00:00Z" },
+          "reservations": { "L": [] }
+        }
+      }
+    },
+    {
+      "PutRequest": {
+        "Item": {
+          "userId": { "S": "2b6e5d22-9d33-4fd2-bfa6-8d6cf1af24b2" },
+          "locationId": { "S": "7d598da3-0887-4a04-a3a1-fe26d8a4a4f2" },
+          "createdAt": { "S": "2026-11-01T00:00:00Z" },
+          "reservations": { "L": [] }
+        }
+      }
+    },
+    {
+      "PutRequest": {
+        "Item": {
+          "userId": { "S": "3c7f6e33-ae44-40e3-c0b7-9e7d02b035c3" },
+          "locationId": { "S": "2de08053-9bec-4662-bf56-2ccb70aeeb78" },
+          "createdAt": { "S": "2026-11-01T00:00:00Z" },
+          "reservations": { "L": [] }
+        }
+      }
+    },
+    {
+      "PutRequest": {
+        "Item": {
+          "userId": { "S": "4d807f44-bf55-41f4-d1c8-af8e13c146d4" },
+          "locationId": { "S": "2de08053-9bec-4662-bf56-2ccb70aeeb78" },
+          "createdAt": { "S": "2026-11-01T00:00:00Z" },
+          "reservations": { "L": [] }
+        }
+      }
+    },
+    {
+      "PutRequest": {
+        "Item": {
+          "userId": { "S": "5e918055-c066-42f5-e2d9-b09f24d257e5" },
+          "locationId": { "S": "98c4acc4-ca8b-4416-be9d-ef40f1e73e0a" },
+          "createdAt": { "S": "2026-11-01T00:00:00Z" },
+          "reservations": { "L": [] }
+        }
+      }
+    },
+    {
+      "PutRequest": {
+        "Item": {
+          "userId": { "S": "6fa29166-d177-4306-f3ea-c1a035e368f6" },
+          "locationId": { "S": "98c4acc4-ca8b-4416-be9d-ef40f1e73e0a" },
+          "createdAt": { "S": "2026-11-01T00:00:00Z" },
+          "reservations": { "L": [] }
+        }
+      }
+    }
+  ]
+}

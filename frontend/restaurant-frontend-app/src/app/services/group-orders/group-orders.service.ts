@@ -1,6 +1,7 @@
 import { HttpClient, HttpContext } from '@angular/common/http';
 import { inject, Injectable } from '@angular/core';
 import { Observable, map, switchMap } from 'rxjs';
+import { SetItemQuantityRequest } from '@app/models/group-orders/set-item-quantity.model';
 import { SKIP_ERROR_TOAST } from '@app/auth/skip-error-toast.context';
 import { GroupSessionsResponse } from '@app/models/group-orders/group-sessions-response.model';
 import { GroupStatusResponse } from '@app/models/group-orders/group-status.model';
@@ -71,4 +72,33 @@ export class GroupOrdersService {
       `${this.baseUrl}/guest/groups/${encodeURIComponent(groupId)}/sessions/${encodeURIComponent(guestSessionId)}`
     );
   }
+
+  /** Owner-only (Cognito token): removes the whole dish line from any session; returns the snapshot. */
+  removeSessionItem$(
+    groupId: string,
+    guestSessionId: string,
+    dishId: string
+  ): Observable<GroupSessionsResponse> {
+    return this.http.delete<GroupSessionsResponse>(
+      `${this.baseUrl}/guest/groups/${encodeURIComponent(groupId)}/sessions/${encodeURIComponent(guestSessionId)}/items/${encodeURIComponent(dishId)}`
+    );
+  }
+
+  /**
+   * Owner-only (Cognito token): sets the ABSOLUTE quantity of a dish line in any session
+   * (<= 0 removes the line; 404 if the line does not exist); returns the snapshot.
+   */
+  setSessionItemQuantity$(
+    groupId: string,
+    guestSessionId: string,
+    dishId: string,
+    quantity: number
+  ): Observable<GroupSessionsResponse> {
+    const body: SetItemQuantityRequest = { quantity };
+    return this.http.patch<GroupSessionsResponse>(
+      `${this.baseUrl}/guest/groups/${encodeURIComponent(groupId)}/sessions/${encodeURIComponent(guestSessionId)}/items/${encodeURIComponent(dishId)}`,
+      body
+    );
+  }
 }
+

@@ -55,6 +55,50 @@ describe('Практичне · картка учасника', () => {
     });
   });
 
+  describe('quantity controls', () => {
+    const ACTIONS: Participant = { ...OLENA, items: [{ ...OLENA.items[0], quantity: 2 }] };
+
+    function renderEditable(participant: Participant) {
+      const fixture = TestBed.createComponent(ParticipantCardComponent);
+      fixture.componentRef.setInput('participant', participant);
+      fixture.componentRef.setInput('canEditItems', true);
+      fixture.detectChanges();
+      return fixture;
+    }
+
+    function byLabel(root: HTMLElement, label: string): HTMLButtonElement | null {
+      return root.querySelector(`button[aria-label="${label}"]`);
+    }
+
+    it('shows +/- for any participant when items are editable', () => {
+      const root = renderEditable(ACTIONS).nativeElement as HTMLElement;
+      expect(byLabel(root, 'Increase Tom Yum quantity')).not.toBeNull();
+      expect(byLabel(root, 'Decrease Tom Yum quantity')).not.toBeNull();
+    });
+
+    it('shows plain quantity without controls when not editable', () => {
+      const root = render(ACTIONS);
+      expect(byLabel(root, 'Increase Tom Yum quantity')).toBeNull();
+    });
+
+    it('emits increment/decrement item actions and disables decrement at 1', () => {
+      const fixture = renderEditable(ACTIONS);
+      const root = fixture.nativeElement as HTMLElement;
+      const emitted: unknown[] = [];
+      fixture.componentInstance.itemAction.subscribe((event) => emitted.push(event));
+
+      byLabel(root, 'Increase Tom Yum quantity')?.click();
+      byLabel(root, 'Decrease Tom Yum quantity')?.click();
+      expect(emitted).toEqual([
+        { participantId: 'olena', dishId: 'dish2', action: 'increment' },
+        { participantId: 'olena', dishId: 'dish2', action: 'decrement' },
+      ]);
+
+      const single = renderEditable({ ...ACTIONS, items: [{ ...ACTIONS.items[0], quantity: 1 }] });
+      expect(byLabel(single.nativeElement as HTMLElement, 'Decrease Tom Yum quantity')?.disabled).toBeTrue();
+    });
+  });
+
   describe('крок 4 · статус кошика текстом', () => {
     it('«Still choosing», якщо кошик не підтверджений', () => {
       expect(render(OLENA).textContent).toContain('Still choosing');

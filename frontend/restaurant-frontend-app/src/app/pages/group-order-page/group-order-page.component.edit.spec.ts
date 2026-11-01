@@ -1,6 +1,7 @@
+import { HttpErrorResponse } from '@angular/common/http';
 import { TestBed } from '@angular/core/testing';
 import { ActivatedRoute, Router, convertToParamMap } from '@angular/router';
-import { of } from 'rxjs';
+import { of, throwError } from 'rxjs';
 import { GroupOrdersService } from '@app/services/group-orders/group-orders.service';
 import { ToastService } from '@app/services/toast/toast.service';
 import { GroupSessionsResponse } from '@app/models/group-orders/group-sessions-response.model';
@@ -85,6 +86,8 @@ describe('Group order item edit preview', () => {
       'getOwnerSessionId$',
       'getStatus$',
       'submit$',
+      'setSessionItemQuantity$',
+      'removeSessionItem$',
     ]);
     service.getGroupInvite$.and.returnValue(of(INVITE));
     service.getGroupInviteToken$.and.returnValue(of('tok-1'));
@@ -96,58 +99,109 @@ describe('Group order item edit preview', () => {
     );
   });
 
-  it('shows owner edit link and updates item quantities locally', () => {
+  it('increments the owner dish via PATCH with absolute quantity and re-renders from the snapshot', () => {
     const { fixture, element } = create();
+    const updated = structuredClone(SESSIONS);
+    updated.participants[0].items[0].quantity = 2;
+    updated.participants[0].total = 360;
+    service.setSessionItemQuantity$.and.returnValue(of(updated));
 
-    expect(
-      [...element.querySelectorAll('button')].find(
-        (button) => button.textContent?.trim() === 'Edit my Pre-Order'
-      )
-    ).toBeDefined();
     buttonByLabel(element, 'Increase Caesar Salad quantity')?.click();
     fixture.detectChanges();
 
+    expect(service.setSessionItemQuantity$).toHaveBeenCalledOnceWith('grp-1', 'owner', 'dish1', 2);
     const ownerCard = element.querySelector('app-participant-card')!;
     expect(ownerCard.querySelector('.qty')?.textContent?.trim()).toBe('2');
     expect(ownerCard.textContent).toContain('$360.00');
-    expect(element.textContent).toContain('These edits are a preview only');
-    expect(element.textContent).toContain('1 participant hasn');
-    expect(
-      [...element.querySelectorAll('button')].find(
-        (button) => button.textContent?.trim() === 'Submit Pre-Order'
-      )?.disabled
-    ).toBeTrue();
-    expect(service.submit$).not.toHaveBeenCalled();
   });
 
-  it('lets the owner update a guest order while keeping its submitted state', () => {
+  it('decrements the owner dish with absolute quantity current-1 when above one', () => {
+    const base = structuredClone(SESSIONS);
+    base.participants[0].items[0].quantity = 3;
+    service.getSessions$.and.returnValue(of(base));
+    service.setSessionItemQuantity$.and.returnValue(of(base));
+    const { fixture, element } = create();
+
+    buttonByLabel(element, 'Decrease Caesar Salad quantity')?.click();
+    fixture.detectChanges();
+
+    expect(service.setSessionItemQuantity$).toHaveBeenCalledOnceWith('grp-1', 'owner', 'dish1', 2);
+  });
+
+  it('lets the owner change a guest quantity (absolute current+1 and current-1)', () => {
+    service.setSessionItemQuantity$.and.returnValue(of(structuredClone(SESSIONS)));
     const { fixture, element } = create();
     const guestCard = element.querySelectorAll('app-participant-card')[1];
 
     buttonByLabel(guestCard, 'Increase Caesar Salad quantity')?.click();
     fixture.detectChanges();
+    expect(service.setSessionItemQuantity$).toHaveBeenCalledWith('grp-1', 'andrii', 'dish1', 3);
 
-    expect(guestCard.querySelector('.qty')?.textContent?.trim()).toBe('3');
-    expect(guestCard.textContent).toContain('Submitted');
-    expect(guestCard.textContent).toContain('$540.00');
-    expect(element.textContent).toContain('Caesar Salad × 4');
+    buttonByLabel(guestCard, 'Decrease Caesar Salad quantity')?.click();
+    fixture.detectChanges();
+    expect(service.setSessionItemQuantity$).toHaveBeenCalledWith('grp-1', 'andrii', 'dish1', 1);
   });
 
-  it('shows item deletion before the dish and removes only that item locally', () => {
+  it('disables decrease at quantity one and never sends quantity below one', () => {
+    const { element } = create();
+
+    expect(buttonByLabel(element, 'Decrease Caesar Salad quantity')?.disabled).toBeTrue();
+    expect(service.setSessionItemQuantity$).not.toHaveBeenCalled();
+  });
+
+  it('keeps the list unchanged and refetches when the quantity API call fails', () => {
+    service.setSessionItemQuantity$.and.returnValue(throwError(() => new HttpErrorResponse({ status: 404 })));
     const { fixture, element } = create();
+    service.getSessions$.calls.reset();
+
+    buttonByLabel(element, 'Increase Caesar Salad quantity')?.click();
+    fixture.detectChanges();
+
+    expect(element.querySelector('app-participant-card .qty')?.textContent?.trim()).toBe('1');
+    expect(service.getSessions$).toHaveBeenCalled();
+  });
+
+  it('deletes a guest dish through the API and uses the returned snapshot', () => {
+    const afterDelete = structuredClone(SESSIONS);
+    afterDelete.participants[1].items = [];
+    afterDelete.participants[1].total = 0;
+    service.removeSessionItem$.and.returnValue(of(afterDelete));
+    const { fixture, element } = create();
+    const guestCard = element.querySelectorAll('app-participant-card')[1];
+
+    buttonByLabel(guestCard, 'Remove Caesar Salad')?.click();
+    fixture.detectChanges();
+
+    expect(service.removeSessionItem$).toHaveBeenCalledOnceWith('grp-1', 'andrii', 'dish1');
+    expect(guestCard.textContent).toContain('No dishes yet');
+    expect(element.querySelectorAll('app-participant-card').length).toBe(3);
+  });
+
+  it('shows item deletion before the dish name', () => {
+    const { element } = create();
 
     const ownerCard = element.querySelector('app-participant-card')!;
     const removeButton = buttonByLabel(element, 'Remove Caesar Salad')!;
     expect(removeButton.compareDocumentPosition(ownerCard.querySelector('.name')!)).toBe(
       Node.DOCUMENT_POSITION_FOLLOWING
     );
-    buttonByLabel(element, 'Remove Caesar Salad')?.click();
+  });
+
+  it('submits the group order via the API and marks it as sent', () => {
+    service.submit$.and.returnValue(of([{ dishId: 'dish1', quantity: 3 }]));
+    const { fixture, element } = create();
+
+    [...element.querySelectorAll('button')]
+      .find((button) => button.textContent?.trim() === 'Submit Pre-Order')
+      ?.click();
+    fixture.detectChanges();
+    [...element.querySelectorAll('button')]
+      .find((button) => button.textContent?.trim() === 'Submit')
+      ?.click();
     fixture.detectChanges();
 
-    expect(ownerCard.textContent).not.toContain('Caesar Salad');
-    expect(ownerCard.textContent).toContain('No dishes yet');
-    expect(element.querySelectorAll('app-participant-card').length).toBe(3);
-    expect(element.textContent).toContain('These edits are a preview only');
+    expect(service.submit$).toHaveBeenCalledOnceWith('grp-1', 'res-1');
+    expect(element.textContent).toContain('Sent to Restaurant');
   });
 
   it('navigates to owner guest session route with invite token', () => {

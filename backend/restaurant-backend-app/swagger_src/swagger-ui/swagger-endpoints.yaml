@@ -576,6 +576,75 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
+    patch:
+      tags:
+        - Guest Sessions
+      summary: Change the quantity of an item in a guest's cart (Owner only)
+      description: Sets the absolute quantity of an existing dish line in the given session (guest or owner); quantity <= 0 removes the line. Returns the updated group snapshot
+      operationId: updateGroupSessionItemQuantity
+      parameters:
+        - name: groupReservationId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: guestSessionId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: dishId
+          in: path
+          required: true
+          schema:
+            type: string
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - quantity
+              properties:
+                quantity:
+                  type: integer
+                  description: New absolute quantity; <= 0 removes the line
+                  example: 3
+      responses:
+        '200':
+          description: Quantity updated (or item removed)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GetAllSessionsResponse'
+        '400':
+          description: Invalid body, session belongs to another group, or group already submitted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Caller is not the reservation owner
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Group reservation, guest session or item not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
   /reservations/{reservationId}/guest-session-id:
     get:
       tags:

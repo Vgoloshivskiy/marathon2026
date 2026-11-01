@@ -1232,5 +1232,16 @@ Owner only (Cognito `sub` must equal `reservation.CustomerId`). Removes the whol
 
 Errors: `401`, `403` (not owner), `404` (group reservation / session / item not found), `400` (session belongs to another group, or group already `Submitted`; the latter has `errorCode: GroupReservationSubmitted`).
 
+### `PATCH` /guest/groups/{groupReservationId}/sessions/{guestSessionId}/items/{dishId}
+Owner only (Cognito `sub` must equal `reservation.CustomerId`). Sets the absolute quantity of the existing line item `dishId` in any session of the group (guest or owner) and returns the updated snapshot (same shape as `GET /guest/groups/{groupReservationId}/sessions`).
+
+Body:
+```json
+{ "quantity": 3 }
+```
+`quantity` (integer, required): `> 0` sets the line quantity to that value; `<= 0` removes the line (same result as the `DELETE` route). The line must already exist (this does not add new dishes).
+
+Errors: `401`, `403` (not owner), `404` (group reservation / session / item not found), `400` (missing/invalid body or `quantity`, session belongs to another group, or group already `Submitted`; the latter has `errorCode: GroupReservationSubmitted`).
+
 ### Owner live cart polling / sharing
 No websocket: the owner polls `GET /guest/groups/{groupReservationId}/sessions` (e.g. every few seconds). Participants are ordered deterministically (owner first, then by name, then id). Data comes from an eventually consistent GSI, so a just-written change may appear in the next poll. The `groupReservationId` is obtained from `GET /guest/invites/{token}` or the reservation; the share link is built from the token returned by `GET /reservations/{reservationId}/invite-token` (guests resolve it via `GET /guest/invites/{token}`, then `POST /guest/sessions`). `GET /guest/groups/{groupReservationId}/status` (public) gives participant count/status for lightweight polling.

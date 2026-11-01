@@ -270,6 +270,39 @@ public class GuestSessionService(
         return await BuildGroupSnapshotAsync(groupReservationId);
     }
 
+    public async Task<GetAllSessionsResponse> SetDishQuantityInGroupSessionAsync(string userId, string groupReservationId, string guestSessionId, string dishId, int quantity)
+    {
+        var group = await groupReservationRepository.GetGroupReservationByIdAsync(groupReservationId)
+            ?? throw new GroupReservationNotFoundException();
+
+        var reservation = await reservationRepository.GetReservationByIdAsync(group.ReservationId)
+            ?? throw new ReservationNotFoundException("Parent reservation not found.");
+
+        if (reservation.CustomerId != userId)
+            throw new ActionForbiddenException("Only the reservation owner can perform this action.");
+
+        var session = await guestSessionRepository.GetByGuestSessionId(guestSessionId)
+            ?? throw new GuestSessionNotFoundException($"Guest session with id {guestSessionId} not found.");
+
+        if (session.GroupReservationId != groupReservationId)
+            throw new ValidationException("Guest session does not belong to this group reservation.");
+
+        if (group.Status == GroupReservationStatus.Submitted)
+            throw new GroupReservationSubmittedException();
+
+        var item = session.Dishes?.FirstOrDefault(d => d.DishId == dishId)
+            ?? throw new DishNotFoundException($"Dish {dishId} not found in guest session.");
+
+        if (quantity <= 0)
+            session.Dishes!.Remove(item);
+        else
+            item.Quantity = quantity;
+
+        await guestSessionRepository.SaveAsync(session);
+
+        return await BuildGroupSnapshotAsync(groupReservationId);
+    }
+
     private async Task<GetAllSessionsResponse> BuildGroupSnapshotAsync(string groupReservationId, string? excludeSessionId = null)
     {
         var sessions = await guestSessionRepository.GetAllByGroupReservationIdAsync(groupReservationId);

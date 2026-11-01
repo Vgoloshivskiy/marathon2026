@@ -1,4 +1,4 @@
-﻿using Amazon.DynamoDBv2.DataModel;
+using Amazon.DynamoDBv2.DataModel;
 using Amazon.DynamoDBv2.DocumentModel;
 using Amazon.DynamoDBv2.Model;
 using APIHandler.Constants;
@@ -77,9 +77,9 @@ public class OrderRepository : IOrderRepository
             },
             new Expression
             {
-                ExpressionStatement = "attribute_exists(groupReservationId) AND (attribute_not_exists(#s) OR #s <> :submitted)",
-                ExpressionAttributeNames = new Dictionary<string, string> { ["#s"] = "status" },
-                ExpressionAttributeValues = new Dictionary<string, DynamoDBEntry> { [":submitted"] = submittedStatus }
+                ExpressionStatement = "attribute_exists(groupReservationId) AND (attribute_not_exists(#cs) OR #cs <> :cs)",
+                ExpressionAttributeNames = new Dictionary<string, string> { ["#cs"] = "status" },
+                ExpressionAttributeValues = new Dictionary<string, DynamoDBEntry> { [":cs"] = submittedStatus }
             });
 
         try
