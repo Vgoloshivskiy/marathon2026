@@ -4,6 +4,7 @@ import { of, Subject, throwError } from 'rxjs';
 import { GroupInviteToken } from '@app/models/reservations/guest-invite.model';
 import { Reservation, ReservationStatus } from '@app/models/reservations/reservation.model';
 import { GuestInviteService } from '@app/services/reservation/guest-invite.service';
+import { OwnerPreOrderNavigationService } from '@app/services/group-orders/owner-pre-order-navigation.service';
 import { ToastService } from '@app/services/toast/toast.service';
 import { ReservationInviteModalComponent } from './reservation-invite-modal.component';
 
@@ -27,6 +28,7 @@ describe('ReservationInviteModalComponent', () => {
   let toastService: jasmine.SpyObj<ToastService>;
   let router: Router;
   let guestInviteService: jasmine.SpyObj<GuestInviteService>;
+  let ownerPreOrderNavigation: jasmine.SpyObj<OwnerPreOrderNavigationService>;
 
   function render(reservation: Reservation): void {
     fixture.componentRef.setInput('reservation', reservation);
@@ -40,6 +42,10 @@ describe('ReservationInviteModalComponent', () => {
       'getInviteToken$',
     ]);
     guestInviteService.getInviteToken$.and.returnValue(of({ token: 'abc123xyz' }));
+    ownerPreOrderNavigation = jasmine.createSpyObj<OwnerPreOrderNavigationService>(
+      'OwnerPreOrderNavigationService',
+      ['openOwnerPreOrder']
+    );
 
     await TestBed.configureTestingModule({
       imports: [ReservationInviteModalComponent],
@@ -47,6 +53,7 @@ describe('ReservationInviteModalComponent', () => {
         provideRouter([]),
         { provide: ToastService, useValue: toastService },
         { provide: GuestInviteService, useValue: guestInviteService },
+        { provide: OwnerPreOrderNavigationService, useValue: ownerPreOrderNavigation },
       ],
     }).compileComponents();
 
@@ -151,13 +158,25 @@ describe('ReservationInviteModalComponent', () => {
     expect(router.navigate).toHaveBeenCalledWith(['/reservations']);
   });
 
-  it('closes and navigates to pre-order enabled menu on Make Pre-Order', () => {
+  it('opens the owner pre-order via the shared helper on Make Pre-Order for a group reservation', () => {
     render(BASE_RESERVATION);
     spyOn(component.closed, 'emit');
 
     element.querySelector<HTMLButtonElement>('.pre-order-btn')!.click();
 
     expect(component.closed.emit).toHaveBeenCalled();
+    expect(ownerPreOrderNavigation.openOwnerPreOrder).toHaveBeenCalledOnceWith('res-1');
+    expect(router.navigate).not.toHaveBeenCalled();
+  });
+
+  it('closes and navigates to pre-order enabled menu on Make Pre-Order for a single guest', () => {
+    render({ ...BASE_RESERVATION, guestCount: 1 });
+    spyOn(component.closed, 'emit');
+
+    element.querySelector<HTMLButtonElement>('.pre-order-btn')!.click();
+
+    expect(component.closed.emit).toHaveBeenCalled();
+    expect(ownerPreOrderNavigation.openOwnerPreOrder).not.toHaveBeenCalled();
     expect(router.navigate).toHaveBeenCalledWith(
       ['/menu'],
       jasmine.objectContaining({

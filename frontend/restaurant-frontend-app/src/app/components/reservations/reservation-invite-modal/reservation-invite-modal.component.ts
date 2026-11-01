@@ -13,6 +13,7 @@ import {
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { Router } from '@angular/router';
 import { Reservation } from '@app/models/reservations/reservation.model';
+import { OwnerPreOrderNavigationService } from '@app/services/group-orders/owner-pre-order-navigation.service';
 import { GuestInviteService } from '@app/services/reservation/guest-invite.service';
 import { ToastService } from '@app/services/toast/toast.service';
 import { ModalComponent } from '@app/shared/custom-components/modal/modal.component';
@@ -31,6 +32,7 @@ export class ReservationInviteModalComponent implements OnInit {
   private readonly toastService = inject(ToastService);
   private readonly guestInviteService = inject(GuestInviteService);
   private readonly destroyRef = inject(DestroyRef);
+  private readonly ownerPreOrderNavigation = inject(OwnerPreOrderNavigationService);
 
   readonly reservation = input.required<Reservation>();
 
@@ -106,6 +108,13 @@ export class ReservationInviteModalComponent implements OnInit {
 
   onMakePreOrder(): void {
     const reservation = this.reservation();
+
+    if (this.showInviteField()) {
+      this.closed.emit();
+      this.ownerPreOrderNavigation.openOwnerPreOrder(reservation.id);
+      return;
+    }
+
     const startTime = new Date(reservation.startTime);
     const endTime = new Date(reservation.endTime);
 

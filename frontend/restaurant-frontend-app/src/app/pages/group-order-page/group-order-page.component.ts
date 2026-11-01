@@ -31,6 +31,7 @@ import {
 } from '@app/models/group-orders/group-status.model';
 import { GuestInvite } from '@app/models/reservations/guest-invite.model';
 import { GroupOrdersService } from '@app/services/group-orders/group-orders.service';
+import { OwnerPreOrderNavigationService } from '@app/services/group-orders/owner-pre-order-navigation.service';
 import { ToastService } from '@app/services/toast/toast.service';
 import { ModalComponent } from '@app/shared/custom-components/modal/modal.component';
 import { consolidatePreOrder } from '@app/shared/helpers/consolidate-pre-order';
@@ -50,6 +51,7 @@ export class GroupOrderPageComponent implements OnInit, OnDestroy {
   private readonly router = inject(Router);
   private readonly groupOrdersService = inject(GroupOrdersService);
   private readonly toastService = inject(ToastService);
+  private readonly ownerPreOrderNavigation = inject(OwnerPreOrderNavigationService);
   private pollingSubscription?: Subscription;
   private pollingStarted = false;
 
@@ -265,26 +267,11 @@ export class GroupOrderPageComponent implements OnInit, OnDestroy {
       return;
     }
 
-    forkJoin({
-      inviteToken: this.groupOrdersService.getGroupInviteToken$(reservationId),
-      ownerSession: this.groupOrdersService.getOwnerSession$(reservationId),
-    })
-      .pipe(catchError(() => EMPTY))
-      .subscribe(({ inviteToken, ownerSession }) => {
-        if (!inviteToken || !ownerSession.guestSessionId || !ownerSession.sessionToken) {
-          return;
-        }
-
-        const ownerName =
-          this.participants().find((participant) => participant.id === ownerSession.guestSessionId)?.name ??
-          'Owner';
-
-        localStorage.setItem(`guestPreorder:${inviteToken}:guestSessionId`, ownerSession.guestSessionId);
-        localStorage.setItem(`guestPreorder:${inviteToken}:guestSessionToken`, ownerSession.sessionToken);
-        localStorage.setItem(`guestPreorder:${inviteToken}:guestName`, ownerName);
-
-        void this.router.navigate(['/join', inviteToken]);
-      });
+    this.ownerPreOrderNavigation.openOwnerPreOrder(
+      reservationId,
+      (guestSessionId) =>
+        this.participants().find((participant) => participant.id === guestSessionId)?.name
+    );
   }
 
   closeRemoveGuestDialog(): void {

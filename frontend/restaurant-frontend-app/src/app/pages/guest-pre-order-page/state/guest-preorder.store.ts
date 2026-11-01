@@ -1,5 +1,6 @@
 import { Injectable, computed, effect, signal, inject } from '@angular/core';
 import { HttpErrorResponse } from '@angular/common/http';
+import { Router } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
 import { GuestInviteService } from '@app/services/reservation/guest-invite.service';
 import { GuestInvite } from '@app/models/reservations/guest-invite.model';
@@ -30,7 +31,10 @@ export interface GuestCartItem {
 export class GuestPreorderStore {
     private readonly contextId = signal<string | null>(null);
     private readonly guestInviteService = inject(GuestInviteService);
+    private readonly router = inject(Router);
 
+    /** Set (per invite token) when the group owner opened this cart from their own reservation. */
+    readonly ownerReservationId = signal<string | null>(null);
     readonly invite = signal<GuestInvite | null>(null);
     readonly inviteLoading = signal(false);
     readonly inviteError = signal<'expired' | 'retryable' | null>(null);
@@ -78,6 +82,7 @@ export class GuestPreorderStore {
 
     initContext(id: string) {
         if (!id) return;
+        this.ownerReservationId.set(localStorage.getItem(this.key(id, 'ownerReservationId')) || null);
         if (this.contextId() === id) return;
 
         this.contextId.set(id);
@@ -277,7 +282,12 @@ export class GuestPreorderStore {
         this.cartError.set(null);
         try {
             await firstValueFrom(this.guestSessionsService.submit(sessionId, token));
-            this.submitSuccess();
+            const ownerReservationId = this.ownerReservationId();
+            if (ownerReservationId) {
+                this.finishOwnerSubmit(ownerReservationId);
+            } else {
+                this.submitSuccess();
+            }
         } catch {
             this.cartError.set('Could not submit your pre-order. Please try again.');
         } finally {
@@ -359,16 +369,42 @@ export class GuestPreorderStore {
         }
     }
 
+    /**
+     * The group owner submitted their own cart: skip the guest "confirmed" page, drop the
+     * per-token state (so re-opening /join/:token starts clean) and go to the read-only group preview.
+     */
+    private finishOwnerSubmit(reservationId: string) {
+        const ctx = this.contextId();
+        if (ctx) {
+            this.clearStorage(ctx);
+            localStorage.removeItem(this.key(ctx, 'guestSessionId'));
+            localStorage.removeItem(this.key(ctx, 'guestSessionToken'));
+        }
+
+        this.contextId.set(null);
+        this.ownerReservationId.set(null);
+        this.guestSessionId.set(null);
+        this.guestSessionToken.set(null);
+        this.menuByCategory.set({});
+        this.cartItems.set([]);
+        this.status.set('active');
+
+        void this.router.navigate(['/reservations', reservationId, 'group-order'], {
+            queryParams: { readonly: 'true' },
+        });
+    }
+
     private clearStorage(ctx: string) {
         localStorage.removeItem(this.key(ctx, 'guestName'));
         localStorage.removeItem(this.key(ctx, 'cart'));
         localStorage.removeItem(this.key(ctx, 'status'));
+        localStorage.removeItem(this.key(ctx, 'ownerReservationId'));
         // cleanup legacy
     }
 
     private key(
         ctx: string,
-        part: 'guestName' | 'cart' | 'status' | 'guestSessionId' | 'guestSessionToken'
+        part: 'guestName' | 'cart' | 'status' | 'guestSessionId' | 'guestSessionToken' | 'ownerReservationId'
     ) {
         return `guestPreorder:${ctx}:${part}`;
     }
