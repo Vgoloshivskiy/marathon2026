@@ -276,6 +276,18 @@ public class GuestSessionService(
         if (excludeSessionId is not null)
             sessions = sessions.Where(s => s.Id != excludeSessionId).ToList();
 
+        string ownerSessionId = $"owner-{groupReservationId}";
+        if (sessions.All(s => s.Id != ownerSessionId))
+        {
+            var ownerSession = await guestSessionRepository.GetByGuestSessionId(ownerSessionId);
+            if (ownerSession is not null &&
+                ownerSession.GroupReservationId == groupReservationId &&
+                ownerSession.Id != excludeSessionId)
+            {
+                sessions.Add(ownerSession);
+            }
+        }
+
         var dishIds = sessions
             .SelectMany(s => s.Dishes ?? [])
             .Select(s => s.DishId)

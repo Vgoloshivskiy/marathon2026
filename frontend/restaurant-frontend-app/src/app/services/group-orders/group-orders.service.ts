@@ -6,6 +6,7 @@ import { GroupSessionsResponse } from '@app/models/group-orders/group-sessions-r
 import { GroupStatusResponse } from '@app/models/group-orders/group-status.model';
 import { SubmittedDish } from '@app/models/group-orders/submit-group-pre-order.model';
 import { GroupInviteToken, GuestInvite } from '@app/models/reservations/guest-invite.model';
+import { OwnerSessionResponse } from '@app/models/group-orders/owner-session.model';
 import { GuestInviteService } from '@app/services/reservation/guest-invite.service';
 import { API_BASE_URL } from '@app/shared/config/api-base-url.token';
 
@@ -35,12 +36,20 @@ export class GroupOrdersService {
     );
   }
 
+  getOwnerSession$(reservationId: string): Observable<OwnerSessionResponse> {
+    return this.http.get<OwnerSessionResponse>(
+      `${this.baseUrl}/reservations/${encodeURIComponent(reservationId)}/guest-session-id`
+    );
+  }
+
   getOwnerSessionId$(reservationId: string): Observable<string> {
-    return this.http
-      .get<{
-        guestSessionId: string;
-      }>(`${this.baseUrl}/reservations/${encodeURIComponent(reservationId)}/guest-session-id`)
-      .pipe(map((response) => response.guestSessionId));
+    return this.getOwnerSession$(reservationId).pipe(map((response) => response.guestSessionId));
+  }
+
+  getGroupInviteToken$(reservationId: string): Observable<string> {
+    return this.guestInviteService
+      .getInviteToken$(reservationId)
+      .pipe(map((inviteToken: GroupInviteToken) => inviteToken.token));
   }
 
   getStatus$(groupId: string, options: { silent?: boolean } = {}): Observable<GroupStatusResponse> {

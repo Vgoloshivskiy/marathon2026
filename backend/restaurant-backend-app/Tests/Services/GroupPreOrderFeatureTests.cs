@@ -70,6 +70,36 @@ public class GroupPreOrderFeatureTests
     }
 
     [Fact]
+    public async Task GetGroupSessionsAsync_OwnerMissingFromGroupIndex_LoadsOwnerByDeterministicId()
+    {
+        var group = Group();
+        var reservation = Reservation();
+        var pasta = Dish("pasta", 12.5m);
+        var drink = Dish("drink", 3m);
+        var owner = Session("owner-" + GroupId, GroupId, [Item("pasta", 2)], isOwner: true, isSubmitted: true);
+        var guest = Session("guest-session", GroupId, [Item("drink", 1)]);
+        SetupOwner(group, reservation);
+        _sessions.Setup(r => r.GetAllByGroupReservationIdAsync(GroupId)).ReturnsAsync([guest]);
+        _sessions.Setup(r => r.GetByGuestSessionId("owner-" + GroupId)).ReturnsAsync(owner);
+        _dishes.Setup(r => r.GetDishesByIdsAsync(It.Is<IEnumerable<string>>(ids => ids.Contains("pasta") && ids.Contains("drink"))))
+            .ReturnsAsync([pasta, drink]);
+
+        var result = await GuestService().GetGroupSessionsAsync(UserId, GroupId);
+
+        var participants = result.Participants.ToArray();
+        Assert.Equal(2, participants.Length);
+        Assert.Equal("owner-" + GroupId, participants[0].Id);
+        Assert.Equal(ParticipantType.Owner, participants[0].Type);
+        Assert.True(participants[0].IsSubmitted);
+        Assert.Equal(25m, participants[0].Total);
+        Assert.Equal("guest-session", participants[1].Id);
+        Assert.Equal(ParticipantType.Guest, participants[1].Type);
+        Assert.Equal(3m, participants[1].Total);
+        Assert.Equal(28m, result.Total);
+        _sessions.Verify(r => r.GetByGuestSessionId("owner-" + GroupId), Times.Once);
+    }
+
+    [Fact]
     public async Task GetGroupSessionsAsync_GroupMissing_ThrowsNotFound()
     {
         _groups.Setup(r => r.GetGroupReservationByIdAsync(GroupId)).ReturnsAsync((GroupReservation?)null);

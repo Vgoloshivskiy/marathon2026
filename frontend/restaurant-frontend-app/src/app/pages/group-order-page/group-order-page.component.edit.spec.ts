@@ -79,13 +79,17 @@ describe('Group order item edit preview', () => {
   beforeEach(() => {
     service = jasmine.createSpyObj<GroupOrdersService>('GroupOrdersService', [
       'getGroupInvite$',
+      'getGroupInviteToken$',
       'getSessions$',
+      'getOwnerSession$',
       'getOwnerSessionId$',
       'getStatus$',
       'submit$',
     ]);
     service.getGroupInvite$.and.returnValue(of(INVITE));
+    service.getGroupInviteToken$.and.returnValue(of('tok-1'));
     service.getSessions$.and.returnValue(of(structuredClone(SESSIONS)));
+    service.getOwnerSession$.and.returnValue(of({ guestSessionId: 'owner', sessionToken: 'owner-token' }));
     service.getOwnerSessionId$.and.returnValue(of('owner'));
     service.getStatus$.and.returnValue(
       of({ currentParticipants: 3, maxCapacity: 5, status: 'Open' as const })
@@ -146,21 +150,15 @@ describe('Group order item edit preview', () => {
     expect(element.textContent).toContain('These edits are a preview only');
   });
 
-  it('navigates to the existing menu with preorder and group return parameters', () => {
+  it('navigates to owner guest session route with invite token', () => {
+    localStorage.clear();
     const { element } = create();
     [...element.querySelectorAll('button')]
       .find((button) => button.textContent?.trim() === 'Edit my Pre-Order')
       ?.click();
 
-    expect(TestBed.inject(Router).navigate).toHaveBeenCalledWith(
-      ['/menu'],
-      jasmine.objectContaining({
-        queryParams: jasmine.objectContaining({
-          preOrder: 'true',
-          reservationId: 'res-1',
-          groupOrderReservationId: 'res-1',
-        }),
-      })
-    );
+    expect(TestBed.inject(Router).navigate).toHaveBeenCalledWith(['/join', 'tok-1']);
+    expect(localStorage.getItem('guestPreorder:tok-1:guestSessionId')).toBe('owner');
+    expect(localStorage.getItem('guestPreorder:tok-1:guestSessionToken')).toBe('owner-token');
   });
 });

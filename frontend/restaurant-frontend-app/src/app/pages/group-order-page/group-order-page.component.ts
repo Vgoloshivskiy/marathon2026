@@ -236,29 +236,31 @@ export class GroupOrderPageComponent implements OnInit, OnDestroy {
   }
 
   addDishesFromMenu(): void {
-    const reservation = this.invite();
     const reservationId = this.reservationId();
-    if (!reservation || !reservationId || !this.canEditItems()) {
+    if (!reservationId || !this.canEditItems()) {
       return;
     }
 
-    const startTime = new Date(reservation.StartTime);
-    const endTime = new Date(reservation.EndTime);
-    const reservationLabel = [
-      reservation.LocationAddress,
-      `Table ${reservation.TableNumber}`,
-      startTime.toDateString(),
-      `${startTime.toLocaleTimeString()} - ${endTime.toLocaleTimeString()}`,
-    ].join(', ');
+    forkJoin({
+      inviteToken: this.groupOrdersService.getGroupInviteToken$(reservationId),
+      ownerSession: this.groupOrdersService.getOwnerSession$(reservationId),
+    })
+      .pipe(catchError(() => EMPTY))
+      .subscribe(({ inviteToken, ownerSession }) => {
+        if (!inviteToken || !ownerSession.guestSessionId || !ownerSession.sessionToken) {
+          return;
+        }
 
-    void this.router.navigate(['/menu'], {
-      queryParams: {
-        preOrder: 'true',
-        reservationId,
-        reservationLabel,
-        groupOrderReservationId: reservationId,
-      },
-    });
+        const ownerName =
+          this.participants().find((participant) => participant.id === ownerSession.guestSessionId)?.name ??
+          'Owner';
+
+        localStorage.setItem(`guestPreorder:${inviteToken}:guestSessionId`, ownerSession.guestSessionId);
+        localStorage.setItem(`guestPreorder:${inviteToken}:guestSessionToken`, ownerSession.sessionToken);
+        localStorage.setItem(`guestPreorder:${inviteToken}:guestName`, ownerName);
+
+        void this.router.navigate(['/join', inviteToken]);
+      });
   }
 
   closeRemoveGuestDialog(): void {
